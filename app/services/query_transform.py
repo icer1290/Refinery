@@ -9,6 +9,7 @@ Provides advanced query processing techniques:
 from typing import List
 
 from langchain_openai import ChatOpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import get_settings
 from app.core import get_logger
@@ -55,6 +56,10 @@ class QueryTransformService:
             model=self.model,
         )
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def generate_hypothetical_document(
         self,
         query: str,
@@ -101,6 +106,10 @@ class QueryTransformService:
             # Return original query as fallback
             return query
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def expand_query(
         self,
         query: str,
@@ -175,6 +184,10 @@ class QueryTransformService:
             # Return original query as fallback
             return [query]
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def extract_keywords(
         self,
         query: str,

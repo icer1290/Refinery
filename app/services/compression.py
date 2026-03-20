@@ -7,6 +7,7 @@ reducing noise and improving the quality of context provided to the generator.
 from typing import List
 
 from langchain_openai import ChatOpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import get_settings
 from app.core import get_logger
@@ -53,6 +54,10 @@ class CompressionService:
             model=self.model,
         )
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def compress_chunks(
         self,
         query: str,
@@ -126,6 +131,10 @@ class CompressionService:
             combined = "\n\n".join(r.chunk_text for r in results[:3])
             return combined[:max_length]
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def extract_key_sentences(
         self,
         query: str,
@@ -206,6 +215,10 @@ class CompressionService:
             )
             return []
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def summarize_for_context(
         self,
         query: str,
