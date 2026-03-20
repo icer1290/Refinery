@@ -10,34 +10,37 @@ An AI-powered tech news aggregation system built with LangGraph, FastAPI, and Po
 - **Content Extraction**: Extracts full article content using trafilatura
 - **Chinese Translation**: Generates Chinese titles and summaries with entity preservation
 - **Self-reflection**: Validates translation quality with automatic retry mechanism
-- **Vector Storage**: Stores embeddings in PostgreSQL with pgvector extension
+- **Deep Search**: On-demand article research via ReAct loop with web search (DuckDuckGo/Tavily)
+- **GraphRAG**: Knowledge graph construction with community detection for contextual analysis
+- **Vector Storage**: PostgreSQL with pgvector extension for vector storage and graph data
 
 ## Architecture
 
+### Main Workflow Pipeline
+
 ```
-[Entry]
-   ↓
-[Scout Phase] → Parallel RSS feed fetching
-   ↓
-[Deduplication] → Vector similarity deduplication
-   ↓
-[Scoring Phase] → Multi-dimensional scoring, filter < 6.0
-   ↓
-[Writing Phase] → Extract content + Generate Chinese summary
-   ↓
-[Reflection] → Validate (retry max=3)
-   ↓
-[Storage Phase] → PostgreSQL + pgvector
-   ↓
-[End]
+[Entry] → [Scout] → [Dedup] → [Scoring] → [Writing] → [Reflection] → [Storage] → [End]
 ```
+
+### Deep Search (ReAct Loop)
+
+On-demand deep research for articles:
+1. Fetch article content
+2. ReAct loop with web search tools (DuckDuckGo or Tavily)
+3. Generate comprehensive report
+
+### GraphRAG (DeepGraph)
+
+Two-phase knowledge graph system:
+- **Background GraphBuilder**: Extract entities/relationships, detect communities (Leiden algorithm)
+- **On-demand GraphAnalyst**: Fetch subgraph, expand via traversal, generate analysis
 
 ## Tech Stack
 
 - **Backend**: FastAPI, LangGraph, LangChain
 - **Database**: PostgreSQL + pgvector
-- **AI**: OpenAI GPT-4o-mini, text-embedding-3-small
-- **RSS/Web**: feedparser, trafilatura, httpx
+- **AI**: OpenAI or compatible APIs (DashScope, Azure, Ollama)
+- **RSS/Web**: feedparser, trafilatura, httpx, duckduckgo-search
 
 ## Setup
 
@@ -45,34 +48,30 @@ An AI-powered tech news aggregation system built with LangGraph, FastAPI, and Po
 
 - Python 3.11+
 - PostgreSQL 15+ with pgvector extension
-- OpenAI API key
+- OpenAI API key (or compatible)
 
 ### Installation
 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd tech-news-aggregator
+cd ai-engine
 ```
 
-2. Create virtual environment:
+2. Install dependencies (uv preferred):
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+uv sync
+# Or use pip
 pip install -r requirements.txt
 ```
 
-4. Configure environment:
+3. Configure environment:
 ```bash
 cp .env.example .env
 # Edit .env with your settings
 ```
 
-5. Set up database:
+4. Set up database:
 ```bash
 # Create PostgreSQL database
 createdb news_aggregator
@@ -90,72 +89,92 @@ uvicorn app.main:app --reload
 
 Access the API documentation at: http://localhost:8000/docs
 
+### Docker
+
+```bash
+docker-compose up -d
+docker-compose logs -f ai-engine
+docker-compose down
+```
+
 ## API Endpoints
+
+All endpoints under `/api/v1/`:
 
 ### Workflow
 
-- `POST /api/v1/workflow/run` - Trigger news aggregation workflow
-- `GET /api/v1/workflow/runs` - List workflow run history
-- `GET /api/v1/workflow/runs/{id}` - Get workflow run details
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/workflow/run` | POST | Trigger news aggregation workflow |
+| `/workflow/runs` | GET | List workflow run history |
+| `/workflow/runs/{id}` | GET | Get workflow run details |
+| `/workflow/articles` | GET | List articles |
+| `/workflow/articles/{id}` | GET | Get article details |
+| `/workflow/feeds` | GET/POST | List or add RSS feed sources |
+| `/workflow/feeds/{id}` | DELETE | Delete RSS feed |
+| `/workflow/feeds/{id}/toggle` | PATCH | Toggle feed active status |
 
-### Articles
+### Deep Search
 
-- `GET /api/v1/articles` - List articles
-- `GET /api/v1/articles/{id}` - Get article details
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/deep-search/run` | POST | Run deep search for an article |
 
-### Feeds
+### Graph Analysis
 
-- `GET /api/v1/feeds` - List RSS feed sources
-- `POST /api/v1/feeds` - Add new RSS feed
-- `DELETE /api/v1/feeds/{id}` - Delete RSS feed
-- `PATCH /api/v1/feeds/{id}/toggle` - Toggle feed active status
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/deep-graph/analyze` | POST | Generate knowledge graph analysis |
 
 ### Health
 
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/health/ready` - Readiness check
-- `GET /api/v1/health/live` - Liveness check
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/health/ready` | GET | Readiness check |
+| `/health/live` | GET | Liveness check |
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection URL | `postgresql+asyncpg://postgres:postgres@localhost:5432/news_aggregator` |
-| `OPENAI_API_KEY` | OpenAI API key | Required |
-| `DEDUP_SIMILARITY_THRESHOLD` | Similarity threshold for deduplication | `0.85` |
-| `SCORE_THRESHOLD` | Minimum score to keep article | `6.0` |
-| `MAX_REFLECTION_RETRIES` | Max retries for reflection | `3` |
-| `MAX_CONCURRENT_SCORERS` | Parallel scoring limit | `5` |
-| `MAX_CONCURRENT_WRITERS` | Parallel writing limit | `3` |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection URL |
+| `OPENAI_API_KEY` | Yes | OpenAI or compatible API key |
+| `OPENAI_CHAT_MODEL` | Yes | Chat model (e.g., gpt-4o-mini, qwen3.5-35b-a3b) |
+| `OPENAI_EMBEDDING_MODEL` | Yes | Embedding model (e.g., text-embedding-3-small) |
+| `OPENAI_BASE_URL` | No | Override API base URL (for DashScope, Azure, Ollama) |
+| `WEB_SEARCH_PROVIDER` | No | Provider: "duckduckgo" or "tavily" (default: duckduckgo) |
+| `RERANK_PROVIDER` | No | Provider: "none", "dashscope", "cohere", "jina" |
+
+See `.env.example` for complete configuration options.
 
 ## Testing
 
-Run tests:
 ```bash
 pytest
-```
-
-Run with coverage:
-```bash
 pytest --cov=app tests/
+pytest tests/test_rag.py -v  # Run single test file
 ```
 
 ## Project Structure
 
 ```
-tech_news_aggregator/
+ai-engine/
 ├── app/
 │   ├── api/           # FastAPI routes
 │   ├── models/        # Database models
-│   ├── agents/        # LangGraph agents
-│   ├── workflow/      # Workflow definition
-│   ├── services/      # Business logic
+│   ├── agents/        # LangGraph agents (Scout, Scorer, Writer, Reflection)
+│   ├── workflow/      # Main workflow graph and nodes
+│   ├── deep_search/   # ReAct loop for deep research
+│   ├── deep_graph/    # GraphRAG builder and analyst
+│   ├── services/      # RAG services (embedding, vector_store, reranker, etc.)
+│   ├── prompts/       # Centralized prompt templates
 │   ├── core/          # Exceptions, logging
 │   └── utils/         # Helpers, constants
 ├── alembic/           # Database migrations
 ├── tests/             # Test files
 ├── pyproject.toml
-└── requirements.txt
+└── docker-compose.yml
 ```
 
 ## License
