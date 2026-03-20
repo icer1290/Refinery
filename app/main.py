@@ -21,6 +21,15 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
+    # Validate configuration
+    errors = settings.validate()
+    if errors:
+        from app.core import get_logger
+        logger = get_logger(__name__)
+        for error in errors:
+            logger.error(f"Configuration error: {error}")
+        raise ValueError(f"Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors))
+
     # Startup
     await init_db()
     yield

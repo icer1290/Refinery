@@ -13,8 +13,6 @@ from app.core.exceptions import EmbeddingError
 logger = get_logger(__name__)
 settings = get_settings()
 
-DASHSCOPE_MAX_BATCH_SIZE = 10
-
 
 class EmbeddingService:
     """Service for generating text embeddings using OpenAI-compatible APIs.
@@ -37,8 +35,11 @@ class EmbeddingService:
         if not self.api_key:
             raise EmbeddingError("API key not configured")
 
-        # Determine if we're using DashScope
-        self._is_dashscope = self.base_url and "dashscope" in self.base_url.lower()
+        # Determine if we're using DashScope via explicit config or URL detection
+        self._is_dashscope = (
+            settings.embedding_provider == "dashscope"
+            or (self.base_url and "dashscope" in self.base_url.lower())
+        )
 
         logger.info(
             "Embedding service initialized",
@@ -197,7 +198,7 @@ class EmbeddingService:
             # Use DashScope-specific API if detected
             if self._is_dashscope:
                 embeddings = []
-                batches = list(self._chunk_texts(truncated_texts, DASHSCOPE_MAX_BATCH_SIZE))
+                batches = list(self._chunk_texts(truncated_texts, settings.embedding_max_batch_size))
                 logger.info(
                     "Generating DashScope batch embeddings",
                     total_count=len(truncated_texts),

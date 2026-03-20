@@ -30,10 +30,8 @@ except ImportError:
         HAS_DDGS = False
         logger.warning("DDGS client not installed, using fallback HTML scraping")
 
-# Rate limiting configuration
-MIN_SEARCH_INTERVAL = 2.0  # Minimum seconds between searches
-MAX_SEARCH_INTERVAL = 4.0  # Maximum seconds between searches
-_last_search_time = 0.0  # Track last search timestamp
+# Track last search timestamp for rate limiting
+_last_search_time = 0.0
 
 
 class WebSearchResult:
@@ -67,7 +65,7 @@ class WebSearchService:
     ):
         self.provider = provider or getattr(settings, "web_search_provider", "duckduckgo")
         self.api_key = api_key or getattr(settings, "web_search_api_key", None)
-        self.timeout = 30.0
+        self.timeout = settings.web_search_timeout
 
         logger.info(
             "Web search service initialized",
@@ -84,8 +82,11 @@ class WebSearchService:
         current_time = time.time()
         time_since_last = current_time - _last_search_time
 
-        # Random delay between MIN and MAX interval
-        required_delay = random.uniform(MIN_SEARCH_INTERVAL, MAX_SEARCH_INTERVAL)
+        # Random delay between MIN and MAX interval from config
+        required_delay = random.uniform(
+            settings.web_search_min_interval,
+            settings.web_search_max_interval
+        )
 
         if time_since_last < required_delay:
             wait_time = required_delay - time_since_last
@@ -410,7 +411,7 @@ class WebSearchService:
         Returns:
             List of search results
         """
-        url = "https://api.tavily.com/search"
+        url = settings.tavily_api_url
 
         payload = {
             "api_key": self.api_key,

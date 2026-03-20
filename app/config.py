@@ -21,8 +21,31 @@ class Settings(BaseSettings):
     # LLM API Configuration
     openai_api_key: str = ""
     openai_base_url: Optional[str] = None  # For custom API endpoints (DashScope, etc.)
-    openai_embedding_model: str = "text-embedding-v4"
-    openai_chat_model: str = "qwen3.5-35b-a3b"
+    openai_embedding_model: str = ""
+    openai_chat_model: str = ""
+
+    # === LLM Settings ===
+    llm_temperature: float = 0.3
+    llm_enable_thinking: bool = False
+    llm_max_tokens: int = 4096
+
+    # === Scoring Weights ===
+    scoring_weight_industry_impact: float = 0.4
+    scoring_weight_milestone: float = 0.35
+    scoring_weight_attention: float = 0.25
+
+    # === Embedding Settings ===
+    embedding_provider: str = "openai"  # "openai" | "dashscope" | "custom"
+    embedding_max_batch_size: int = 10  # For DashScope batching
+
+    # === Reranker Settings ===
+    rerank_provider: str = "none"  # "none" | "dashscope" | "cohere" | "jina"
+    rerank_model: str = "gte-rerank"
+    rerank_api_url: Optional[str] = None  # Override default
+    rerank_api_key: Optional[str] = None  # Falls back to OPENAI_API_KEY if not set
+
+    # === DashScope-Specific ===
+    dashscope_rerank_url: str = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
 
     # Deduplication
     dedup_similarity_threshold: float = 0.85
@@ -70,6 +93,18 @@ class Settings(BaseSettings):
     web_search_provider: str = "duckduckgo"  # or "tavily"
     web_search_api_key: Optional[str] = None
 
+    # === Web Search Settings ===
+    web_search_timeout: float = 30.0
+    tavily_api_url: str = "https://api.tavily.com/search"
+    web_search_min_interval: float = 2.0
+    web_search_max_interval: float = 4.0
+
+    # === Web Extractor Settings ===
+    web_extractor_timeout: float = 30.0
+    web_extractor_max_retries: int = 3
+    web_extractor_retry_delay: float = 1.0
+    web_extractor_host_limit: int = 2
+
     # RAG Configuration
     rag_chunk_size: int = 2000
     rag_chunk_overlap: int = 400
@@ -91,6 +126,25 @@ class Settings(BaseSettings):
     deepgraph_max_hops: int = 2
     deepgraph_expansion_limit: int = 50
     deepgraph_entity_similarity_threshold: float = 0.85
+
+    def validate(self) -> list[str]:
+        """Validate configuration. Returns list of error messages."""
+        errors = []
+
+        # Required
+        if not self.openai_api_key:
+            errors.append("OPENAI_API_KEY is required")
+        if not self.openai_chat_model:
+            errors.append("OPENAI_CHAT_MODEL is required (e.g., gpt-4o-mini, qwen3.5-35b-a3b)")
+        if not self.openai_embedding_model:
+            errors.append("OPENAI_EMBEDDING_MODEL is required (e.g., text-embedding-3-small, text-embedding-v4)")
+
+        # Validate weights sum to ~1.0
+        weight_sum = self.scoring_weight_industry_impact + self.scoring_weight_milestone + self.scoring_weight_attention
+        if abs(weight_sum - 1.0) > 0.01:
+            errors.append(f"Scoring weights should sum to 1.0, got {weight_sum:.2f}")
+
+        return errors
 
 
 @lru_cache

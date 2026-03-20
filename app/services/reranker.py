@@ -45,8 +45,8 @@ class RerankerService:
             api_key: API key (default from settings)
             base_url: API base URL (default from settings)
         """
-        self.model = model or settings.rag_rerank_model
-        self.api_key = api_key or settings.openai_api_key
+        self.model = model or settings.rerank_model
+        self.api_key = api_key or settings.rerank_api_key or settings.openai_api_key
         self.base_url = base_url or settings.openai_base_url
 
         if not self.api_key:
@@ -136,7 +136,7 @@ class RerankerService:
         Returns:
             List of relevance scores
         """
-        is_dashscope = self.base_url and "dashscope" in self.base_url.lower()
+        is_dashscope = settings.rerank_provider == "dashscope"
 
         if is_dashscope:
             return await self._call_dashscope_rerank(query, documents)
@@ -162,7 +162,7 @@ class RerankerService:
             List of relevance scores
         """
         # DashScope rerank uses native API, not OpenAI-compatible mode
-        url = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
+        url = settings.rerank_api_url or settings.dashscope_rerank_url
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

@@ -11,8 +11,10 @@ from bs4 import BeautifulSoup
 
 from app.core import get_logger
 from app.core.exceptions import WebExtractionError
+from app.config import get_settings
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 class WebExtractor:
@@ -20,13 +22,13 @@ class WebExtractor:
 
     def __init__(
         self,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        retry_delay: float = 1.0,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        retry_delay: float | None = None,
     ):
-        self.timeout = timeout
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
+        self.timeout = timeout if timeout is not None else settings.web_extractor_timeout
+        self.max_retries = max_retries if max_retries is not None else settings.web_extractor_max_retries
+        self.retry_delay = retry_delay if retry_delay is not None else settings.web_extractor_retry_delay
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -43,7 +45,7 @@ class WebExtractor:
             "Upgrade-Insecure-Requests": "1",
         }
         self._host_semaphores: dict[str, asyncio.Semaphore] = {}
-        self._default_host_limit = 2
+        self._default_host_limit = settings.web_extractor_host_limit
         self._strict_host_limits = {
             "venturebeat.com": 1,
             "www.venturebeat.com": 1,

@@ -36,8 +36,8 @@ class LLMService:
         llm_kwargs = {
             "model": self.model,
             "api_key": self.api_key,
-            "temperature": 0.3,  # Lower temperature for more consistent outputs
-            "extra_body": {"enable_thinking": False},
+            "temperature": settings.llm_temperature,
+            "extra_body": {"enable_thinking": settings.llm_enable_thinking},
         }
 
         # Add base_url if provided (for DashScope, etc.)
@@ -365,9 +365,11 @@ class LLMService:
             milestone = float(data["milestone_score"])
             attention = float(data["attention_score"])
 
-            # Calculate weighted total score
+            # Calculate weighted total score using config weights
             total = (
-                0.4 * industry_impact + 0.35 * milestone + 0.25 * attention
+                settings.scoring_weight_industry_impact * industry_impact
+                + settings.scoring_weight_milestone * milestone
+                + settings.scoring_weight_attention * attention
             )
 
             return ScoringResult(
