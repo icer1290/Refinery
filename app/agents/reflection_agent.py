@@ -1,5 +1,6 @@
 """Reflection Agent - Quality check and validation."""
 
+import asyncio
 import re
 import traceback
 from typing import Any
@@ -14,10 +15,12 @@ settings = get_settings()
 class ReflectionAgent(BaseAgent):
     """Agent responsible for validating translation quality."""
 
-    def __init__(self, max_retries: int | None = None):
+    def __init__(self, max_retries: int | None = None, max_concurrent: int | None = None):
         super().__init__("Reflection")
         self.llm_service: LLMService | None = None
         self.max_retries = max_retries or settings.max_reflection_retries
+        self.max_concurrent = max_concurrent or settings.max_concurrent_reflectors
+        self._semaphore: asyncio.Semaphore | None = None
 
     def _get_llm_service(self) -> LLMService:
         """Lazily initialize LLM service."""
@@ -81,26 +84,37 @@ class ReflectionAgent(BaseAgent):
                 article["reflection_retries"] = 0
             return articles
 
+        # Initialize semaphore for concurrency control
+        self._semaphore = asyncio.Semaphore(self.max_concurrent)
+
+        self.logger.info(
+            "Starting to validate articles",
+            total_articles=len(articles),
+            max_concurrent=self.max_concurrent,
+        )
+
+        # Validate articles concurrently
+        tasks = [self._validate_article(article, i) for i, article in enumerate(articles)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter and collect results
         validated_articles = []
         errors_count = 0
-
-        for i, article in enumerate(articles):
-            try:
-                validated = await self._validate_article(article, i)
-                if validated:
-                    validated_articles.append(validated)
-            except Exception as e:
+        for article, result in zip(articles, results):
+            if isinstance(result, Exception):
                 errors_count += 1
                 self.logger.error(
-                    f"Error validating article {i + 1}",
-                    error=str(e),
+                    "Failed to validate article",
                     article_url=article.get("source_url"),
+                    error=str(result),
                     traceback=traceback.format_exc(),
                 )
                 # 出错时仍保留文章
                 article["reflection_passed"] = True
                 article["reflection_retries"] = 0
                 validated_articles.append(article)
+            elif result is not None:
+                validated_articles.append(result)
 
         self.logger.info(
             "Reflection phase complete",
@@ -121,109 +135,124 @@ class ReflectionAgent(BaseAgent):
         Returns:
             Validated article or None if validation failed after retries
         """
-        llm = self._get_llm_service()
-        retries = 0
+        async with self._semaphore:
+            llm = self._get_llm_service()
+            retries = 0
 
-        # 检查是否有内容，无内容时跳过 reflection 以避免浪费重试
-        if not article.get("full_content"):
-            self.logger.warning(
-                "Article has no content, skipping reflection",
-                article_url=article.get("source_url"),
-            )
-            article["reflection_passed"] = True
-            article["reflection_retries"] = 0
-            return article
-
-        # 检查必要字段
-        if not article.get("chinese_title") or not article.get("chinese_summary"):
-            self.logger.warning(
-                f"Article {index + 1} missing translation, skipping reflection",
-                article_url=article.get("source_url"),
-            )
-            article["reflection_passed"] = True
-            article["reflection_retries"] = 0
-            return article
-
-        while retries < self.max_retries:
-            try:
-                # Quick format check before expensive LLM call
-                quick_passed, quick_issues = self._quick_format_check(
-                    article["chinese_title"], article["chinese_summary"]
+            # 检查是否有内容，无内容时跳过 reflection 以避免浪费重试
+            if not article.get("full_content"):
+                self.logger.warning(
+                    "Article has no content, skipping reflection",
+                    article_url=article.get("source_url"),
                 )
+                article["reflection_passed"] = True
+                article["reflection_retries"] = 0
+                return article
 
-                if quick_passed:
-                    # Format looks good, still do LLM reflection for semantic validation
-                    result = await llm.reflect(
-                        chinese_title=article["chinese_title"],
-                        chinese_summary=article["chinese_summary"],
-                        original_title=article["original_title"],
-                        original_content=article.get("full_content", ""),
+            # 检查必要字段
+            if not article.get("chinese_title") or not article.get("chinese_summary"):
+                self.logger.warning(
+                    f"Article {index + 1} missing translation, skipping reflection",
+                    article_url=article.get("source_url"),
+                )
+                article["reflection_passed"] = True
+                article["reflection_retries"] = 0
+                return article
+
+            while retries < self.max_retries:
+                try:
+                    # Quick format check before expensive LLM call
+                    quick_passed, quick_issues = self._quick_format_check(
+                        article["chinese_title"], article["chinese_summary"]
                     )
 
-                    if result.passed:
-                        article["reflection_passed"] = True
-                        article["reflection_feedback"] = None
-                        article["reflection_retries"] = retries
-                        return article
+                    if quick_passed:
+                        # Format looks good, still do LLM reflection for semantic validation
+                        result = await asyncio.wait_for(
+                            llm.reflect(
+                                chinese_title=article["chinese_title"],
+                                chinese_summary=article["chinese_summary"],
+                                original_title=article["original_title"],
+                                original_content=article.get("full_content", ""),
+                            ),
+                            timeout=60.0,  # 60秒超时
+                        )
 
-                    issues = result.issues or []
-                else:
-                    # Quick check found issues, skip LLM reflection and retry directly
-                    issues = quick_issues
+                        if result.passed:
+                            article["reflection_passed"] = True
+                            article["reflection_feedback"] = None
+                            article["reflection_retries"] = retries
+                            return article
+
+                        issues = result.issues or []
+                    else:
+                        # Quick check found issues, skip LLM reflection and retry directly
+                        issues = quick_issues
+                        self.logger.info(
+                            "Quick format check failed, retrying",
+                            article_url=article.get("source_url"),
+                            attempt=retries + 1,
+                            issues=issues[:2],
+                        )
+
+                    # Retry: regenerate translation
                     self.logger.info(
-                        "Quick format check failed, retrying",
+                        "Reflection failed, retrying",
                         article_url=article.get("source_url"),
                         attempt=retries + 1,
-                        issues=issues[:2],
+                        max_retries=self.max_retries,
+                        issues=issues[:2] if issues else [],  # 只显示前2个问题
                     )
 
-                # Retry: regenerate translation
-                self.logger.info(
-                    "Reflection failed, retrying",
-                    article_url=article.get("source_url"),
-                    attempt=retries + 1,
-                    max_retries=self.max_retries,
-                    issues=issues[:2] if issues else [],  # 只显示前2个问题
-                )
+                    # Build feedback from issues
+                    feedback = "\n".join(f"- {issue}" for issue in issues) if issues else None
 
-                # Build feedback from issues
-                feedback = "\n".join(f"- {issue}" for issue in issues) if issues else None
+                    # Regenerate translation with feedback
+                    translation = await asyncio.wait_for(
+                        llm.translate_and_summarize(
+                            title=article["original_title"],
+                            content=article.get("full_content", ""),
+                            entities_to_preserve=article.get("entities_preserved"),
+                            feedback=feedback,  # Pass feedback from reflection or quick check
+                        ),
+                        timeout=60.0,  # 60秒超时
+                    )
 
-                # Regenerate translation with feedback
-                translation = await llm.translate_and_summarize(
-                    title=article["original_title"],
-                    content=article.get("full_content", ""),
-                    entities_to_preserve=article.get("entities_preserved"),
-                    feedback=feedback,  # Pass feedback from reflection or quick check
-                )
+                    article["chinese_title"] = translation.chinese_title
+                    article["chinese_summary"] = translation.chinese_summary
+                    article["entities_preserved"] = translation.entities_preserved or []
+                    article["reflection_feedback"] = feedback
 
-                article["chinese_title"] = translation.chinese_title
-                article["chinese_summary"] = translation.chinese_summary
-                article["entities_preserved"] = translation.entities_preserved or []
-                article["reflection_feedback"] = feedback
+                    retries += 1
 
-                retries += 1
+                except asyncio.TimeoutError:
+                    self.logger.warning(
+                        f"Timeout during reflection attempt {retries + 1}",
+                        article_url=article.get("source_url"),
+                    )
+                    retries += 1
+                    if retries >= self.max_retries:
+                        break
+                except Exception as e:
+                    self.logger.warning(
+                        f"Error during reflection attempt {retries + 1}",
+                        error=str(e),
+                        article_url=article.get("source_url"),
+                    )
+                    retries += 1
+                    if retries >= self.max_retries:
+                        break
 
-            except Exception as e:
-                self.logger.warning(
-                    f"Error during reflection attempt {retries + 1}",
-                    error=str(e),
-                    article_url=article.get("source_url"),
-                )
-                retries += 1
-                if retries >= self.max_retries:
-                    break
+            # Max retries reached - still return article
+            self.logger.warning(
+                "Reflection failed after max retries, keeping article",
+                article_url=article.get("source_url"),
+                max_retries=self.max_retries,
+            )
 
-        # Max retries reached - still return article
-        self.logger.warning(
-            "Reflection failed after max retries, keeping article",
-            article_url=article.get("source_url"),
-            max_retries=self.max_retries,
-        )
-
-        article["reflection_passed"] = True  # 标记为通过，避免丢失文章
-        article["reflection_retries"] = retries
-        return article
+            article["reflection_passed"] = True  # 标记为通过，避免丢失文章
+            article["reflection_retries"] = retries
+            return article
 
 
 # Singleton instance

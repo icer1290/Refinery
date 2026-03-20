@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     # Concurrency
     max_concurrent_scorers: int = 5
     max_concurrent_writers: int = 3
+    max_concurrent_reflectors: int = 3
 
     # Server
     host: str = "0.0.0.0"
