@@ -6,6 +6,7 @@ Provides advanced query processing techniques:
 - Multi-query expansion: Generate multiple related queries to improve recall.
 """
 
+import json
 from typing import List
 
 from langchain_openai import ChatOpenAI
@@ -13,6 +14,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import get_settings
 from app.core import get_logger
+from app.prompts import get_prompt
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -78,13 +80,10 @@ class QueryTransformService:
             Generated hypothetical document text
         """
         try:
-            prompt = f"""请生成一篇假设性的新闻文章，这篇文章能够完美回答以下问题。
-文章应该包含详细的技术细节和背景信息。
-目标长度约{doc_length}字。
-
-问题: {query}
-
-请直接输出文章内容，不要添加任何解释或标注:"""
+            prompt = get_prompt("rag.hyde").format(
+                query=query,
+                doc_length=str(doc_length),
+            )
 
             response = await self.llm.ainvoke(prompt)
             hypothetical_doc = response.content
@@ -128,22 +127,15 @@ class QueryTransformService:
             List of expanded queries (including original)
         """
         try:
-            prompt = f"""你是一个搜索助手。请将以下查询扩展为{n}个相关但不同的搜索查询。
-这些查询应该从不同角度探索原始问题的不同方面。
-每个查询应该是一个独立的问题，可以单独用于搜索。
-
-原始查询: {query}
-
-请以JSON数组格式输出，例如:
-["查询1", "查询2", "查询3"]
-
-只输出JSON数组，不要添加其他内容:"""
+            prompt = get_prompt("rag.query_expand").format(
+                query=query,
+                n=str(n),
+            )
 
             response = await self.llm.ainvoke(prompt)
             content = response.content.strip()
 
             # Parse JSON response
-            import json
             # Handle potential markdown code blocks
             if content.startswith("```"):
                 content = content.split("\n", 1)[1]
@@ -205,20 +197,14 @@ class QueryTransformService:
             List of extracted keywords
         """
         try:
-            prompt = f"""从以下查询中提取{n}个最重要的关键词。
-关键词应该是技术术语、公司名称、产品名称或核心概念。
-
-查询: {query}
-
-请以JSON数组格式输出，例如:
-["关键词1", "关键词2", "关键词3"]
-
-只输出JSON数组:"""
+            prompt = get_prompt("rag.keyword_extract").format(
+                query=query,
+                n=str(n),
+            )
 
             response = await self.llm.ainvoke(prompt)
             content = response.content.strip()
 
-            import json
             # Handle potential markdown code blocks
             if content.startswith("```"):
                 content = content.split("\n", 1)[1]

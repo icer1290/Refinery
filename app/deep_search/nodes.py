@@ -20,16 +20,10 @@ from app.deep_search.prompts import (
 )
 from app.deep_search.state import DeepSearchState
 from app.deep_search.tools import execute_tool
+from app.prompts import get_prompt
 
 logger = get_logger(__name__)
 settings = get_settings()
-JSON_REPAIR_PROMPT = """你上一个回复未能被解析为合法 JSON。
-
-请严格返回一个 JSON 对象，不要使用 Markdown 代码块，不要补充解释，不要截断。
-
-输出格式:
-{"thought": "<string>", "action": "vector_search|web_search|conclude", "action_input": <object|null>}
-"""
 
 
 async def fetch_article_node(
@@ -412,7 +406,7 @@ async def _parse_reasoning_decision(
 
     retry_messages = messages + [
         ("assistant", response_text[:4000]),
-        ("user", JSON_REPAIR_PROMPT),
+        ("user", get_prompt("deep_search.json_repair").template),
     ]
 
     try:
