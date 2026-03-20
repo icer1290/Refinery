@@ -1,0 +1,124 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# uv
+uv.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+Thumbs.db
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Docker
+.docker/
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# iOS / Swift
+# Xcode - Build generated
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+
+# Xcode - Various settings (user-specific)
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Xcode - Scheme management
+*.xcscheme
+!default.xcscheme
+
+# Xcode - Smart packages
+Packages/
+Package.resolved
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/Build/
+Carthage/Checkouts/
+
+# App icons and assets (if generated)
+*.appiconset/
+
+# Crash logs
+*.crash
+
+# iOS Simulator
+*.simulator
+CLAUDE.md
