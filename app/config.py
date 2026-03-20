@@ -127,6 +127,27 @@ class Settings(BaseSettings):
     deepgraph_expansion_limit: int = 50
     deepgraph_entity_similarity_threshold: float = 0.85
 
+    # === CORS Settings (comma-separated strings) ===
+    cors_origins: str = "http://localhost:3000"  # Safe default for local development
+    cors_allow_credentials: bool = True
+    cors_allow_methods: str = "*"
+    cors_allow_headers: str = "*"
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Parse CORS origins as a list."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def cors_allow_methods_list(self) -> List[str]:
+        """Parse CORS methods as a list."""
+        return [method.strip() for method in self.cors_allow_methods.split(",") if method.strip()]
+
+    @property
+    def cors_allow_headers_list(self) -> List[str]:
+        """Parse CORS headers as a list."""
+        return [header.strip() for header in self.cors_allow_headers.split(",") if header.strip()]
+
     def validate(self) -> list[str]:
         """Validate configuration. Returns list of error messages."""
         errors = []

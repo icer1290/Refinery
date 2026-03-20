@@ -1,4 +1,8 @@
 services:
+  # ⚠️ SECURITY WARNING: Change default credentials before production deployment!
+  # The hardcoded 'postgres/postgres' credentials are for local development only.
+  # Set POSTGRES_USER, POSTGRES_PASSWORD, and POSTGRES_DB via environment variables
+  # or a .env file for production use.
   postgres:
     image: pgvector/pgvector:pg16
     container_name: ai-engine-db
