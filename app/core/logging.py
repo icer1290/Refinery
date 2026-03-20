@@ -1,6 +1,7 @@
 """Structured logging configuration."""
 
 import logging
+import os
 import sys
 from typing import Any
 
@@ -18,11 +19,17 @@ def setup_logging() -> None:
         structlog.processors.TimeStamper(fmt="iso"),
     ]
 
-    if sys.stdout.isatty():
-        # Human-readable output for development
-        processors.append(structlog.dev.ConsoleRenderer(colors=True))
+    # Determine if colors should be enabled:
+    # 1. FORCE_COLOR=1/true forces colors (for Docker/lazydocker)
+    # 2. NO_COLOR=1 disables colors
+    # 3. Otherwise, use TTY detection
+    force_color = os.environ.get("FORCE_COLOR", "").lower() in ("1", "true", "yes")
+    no_color = os.environ.get("NO_COLOR", "").lower() in ("1", "true", "yes")
+    use_colors = force_color or (sys.stdout.isatty() and not no_color)
+
+    if use_colors:
+        processors.append(structlog.dev.ConsoleRenderer(colors=True, force_colors=True))
     else:
-        # JSON output for production
         processors.append(structlog.processors.JSONRenderer())
 
     structlog.configure(
