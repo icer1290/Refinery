@@ -40,6 +40,9 @@ class DeepSearchState(TypedDict):
         is_complete: Whether search is complete
         should_continue: Whether to continue the loop
 
+        pending_action: Next action to execute (for routing)
+        pending_action_input: Input for the pending action
+
         final_report: Generated deep tracking report
         errors: Errors encountered during processing
     """
@@ -58,6 +61,10 @@ class DeepSearchState(TypedDict):
     current_iteration: int
     is_complete: bool
     should_continue: bool
+
+    # Routing fields
+    pending_action: str | None
+    pending_action_input: dict[str, Any] | None
 
     # Output
     final_report: str
@@ -87,6 +94,8 @@ def create_initial_deep_search_state(
         current_iteration=0,
         is_complete=False,
         should_continue=True,
+        pending_action=None,
+        pending_action_input=None,
         final_report="",
         errors=[],
     )

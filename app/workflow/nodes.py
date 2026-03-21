@@ -434,7 +434,7 @@ async def storage_node(
     if stored_ids and settings.deepgraph_enabled and settings.deepgraph_builder_enabled:
         try:
             import asyncio
-            from app.deep_graph.graph_builder import run_graph_builder_background
+            from app.deep_graph import run_graph_builder_background
             # Non-blocking trigger
             asyncio.create_task(run_graph_builder_background(stored_ids))
             logger.info(

@@ -135,6 +135,8 @@ class GraphBuilderState(TypedDict):
         entities_count: Total entities extracted
         relationships_count: Total relationships extracted
         communities_count: Total communities detected
+
+        _articles: Internal field for passing article data between nodes
     """
 
     # Input
@@ -159,6 +161,9 @@ class GraphBuilderState(TypedDict):
     # Metadata
     started_at: str
     completed_at: str | None
+
+    # Internal fields (prefixed with _ for passing data between nodes)
+    _articles: list[dict[str, Any]]
 
 
 def create_initial_builder_state(
@@ -186,6 +191,7 @@ def create_initial_builder_state(
         communities_count=0,
         started_at=datetime.now().isoformat(),
         completed_at=None,
+        _articles=[],
     )
 
 
@@ -219,6 +225,12 @@ class DeepGraphAnalystState(TypedDict):
 
         current_phase: Current processing phase
         errors: Errors encountered during processing
+
+        _articles: Internal field for article data
+        _seed_entity_objects: Internal field for seed entity details
+        _seed_rel_objects: Internal field for seed relationship details
+        _expanded_entity_objects: Internal field for expanded entity details
+        _expanded_rel_objects: Internal field for expanded relationship details
     """
 
     # Input
@@ -246,6 +258,13 @@ class DeepGraphAnalystState(TypedDict):
     # Status
     current_phase: str
     errors: Annotated[list[dict[str, Any]], operator.add]
+
+    # Internal fields (prefixed with _ for passing data between nodes)
+    _articles: list[dict[str, Any]]
+    _seed_entity_objects: list[dict[str, Any]]
+    _seed_rel_objects: list[Any]
+    _expanded_entity_objects: list[dict[str, Any]]
+    _expanded_rel_objects: list[Any]
 
 
 def create_initial_analyst_state(
@@ -278,4 +297,9 @@ def create_initial_analyst_state(
         visualization_data={},
         current_phase="init",
         errors=[],
+        _articles=[],
+        _seed_entity_objects=[],
+        _seed_rel_objects=[],
+        _expanded_entity_objects=[],
+        _expanded_rel_objects=[],
     )

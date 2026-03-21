@@ -14,8 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db
 from app.core import get_logger
-from app.deep_graph.graph_analyst import run_deep_graph_analyst
-from app.deep_graph.graph_builder import run_graph_builder
+from app.deep_graph import run_deep_graph_analyst, run_graph_builder
 from app.deep_graph.graph_store import graph_store
 from app.models.orm_models import DeepGraphAnalysis
 from app.models.schemas import (

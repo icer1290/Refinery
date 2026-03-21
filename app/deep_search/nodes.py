@@ -5,13 +5,12 @@ import re
 from datetime import datetime
 from typing import Any
 
-from langchain_openai import ChatOpenAI
+from langgraph.runtime import Runtime
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.core import get_logger
 from app.models.orm_models import NewsArticle
+from app.deep_search.context import DeepSearchContext
 from app.deep_search.prompts import (
     CONCLUSION_PROMPT,
     REACT_SYSTEM_PROMPT,
@@ -21,30 +20,33 @@ from app.deep_search.prompts import (
 from app.deep_search.state import DeepSearchState
 from app.deep_search.tools import execute_tool
 from app.prompts import get_prompt
+from app.services.llm_service import get_llm_service
 
 logger = get_logger(__name__)
-settings = get_settings()
 
 
 async def fetch_article_node(
     state: DeepSearchState,
-    session: AsyncSession,
+    runtime: Runtime[DeepSearchContext],
 ) -> dict[str, Any]:
     """Fetch article from database by ID.
 
     Args:
         state: Current state
-        session: Database session
+        runtime: LangGraph runtime with DeepSearchContext
 
     Returns:
         Updated state fields
     """
-    logger.info("Fetching article", article_id=state["article_id"])
+    session = runtime.context.session
+    article_id = state["article_id"]
+
+    logger.info("Fetching article", article_id=article_id)
 
     try:
         from uuid import UUID
 
-        stmt = select(NewsArticle).where(NewsArticle.id == UUID(state["article_id"]))
+        stmt = select(NewsArticle).where(NewsArticle.id == UUID(article_id))
         result = await session.execute(stmt)
         article = result.scalar_one_or_none()
 
@@ -108,17 +110,8 @@ async def reasoning_node(state: DeepSearchState) -> dict[str, Any]:
         current_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
         logger.info("Injecting current time into prompt", current_time=current_time)
 
-        # Initialize LLM with thinking mode enabled via extra_body
-        llm_kwargs = {
-            "model": settings.openai_chat_model,
-            "api_key": settings.openai_api_key,
-            "temperature": 0.6,
-            "extra_body": {"enable_thinking": True},  # DashScope thinking mode
-        }
-        if settings.openai_base_url:
-            llm_kwargs["base_url"] = settings.openai_base_url
-
-        llm = ChatOpenAI(**llm_kwargs)
+        # Get LLM service
+        llm_service = get_llm_service()
 
         # Build prompt with current time injected
         collected_info_str = format_collected_info(state.get("collected_info", []))
@@ -135,19 +128,23 @@ async def reasoning_node(state: DeepSearchState) -> dict[str, Any]:
             tool_count=len(state.get("tool_history", [])),
         )
 
-        # Get LLM response
-        messages = [
-            ("system", system_prompt),
-            ("user", user_prompt),
-        ]
-
-        response = await llm.ainvoke(messages)
-        response_text = _normalize_response_content(response.content)
+        # Get LLM response with thinking mode enabled
+        response_text = await llm_service.reasoning_analysis(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.6,
+            enable_thinking=True,
+        )
 
         logger.info("LLM response received", response_preview=response_text[:300])
 
         # Parse response
-        decision = await _parse_reasoning_decision(llm, messages, response_text)
+        decision = await _parse_reasoning_decision(
+            llm_service,
+            system_prompt,
+            user_prompt,
+            response_text,
+        )
 
         thought = decision.get("thought", "")
         action = decision.get("action", "conclude")
@@ -170,13 +167,14 @@ async def reasoning_node(state: DeepSearchState) -> dict[str, Any]:
         # Return with pending action for tools node
         return {
             "current_thought": thought,
-            "_pending_action": action,
-            "_pending_action_input": action_input,
+            "pending_action": action,
+            "pending_action_input": action_input,
             "current_iteration": state["current_iteration"] + 1,
         }
 
     except Exception as e:
         import traceback
+
         logger.error("Reasoning failed", error=str(e), traceback=traceback.format_exc())
         return {
             "errors": [{"phase": "reasoning", "message": str(e)}],
@@ -186,19 +184,20 @@ async def reasoning_node(state: DeepSearchState) -> dict[str, Any]:
 
 async def tools_node(
     state: DeepSearchState,
-    session: AsyncSession,
+    runtime: Runtime[DeepSearchContext],
 ) -> dict[str, Any]:
     """Execute tools based on reasoning decision.
 
     Args:
         state: Current state
-        session: Database session
+        runtime: LangGraph runtime with DeepSearchContext
 
     Returns:
         Updated state fields
     """
-    action = state.get("_pending_action")
-    action_input = state.get("_pending_action_input", {})
+    session = runtime.context.session
+    action = state.get("pending_action")
+    action_input = state.get("pending_action_input", {})
 
     if not action:
         return {}
@@ -232,18 +231,18 @@ async def tools_node(
         }
 
         return {
-            "tool_history": state.get("tool_history", []) + [tool_call],
-            "collected_info": state.get("collected_info", []) + [collected_info],
-            "_pending_action": None,
-            "_pending_action_input": None,
+            "tool_history": [tool_call],
+            "collected_info": [collected_info],
+            "pending_action": None,
+            "pending_action_input": None,
         }
 
     except Exception as e:
         logger.error("Tool execution failed", error=str(e))
         return {
             "errors": [{"phase": "tools", "message": str(e)}],
-            "_pending_action": None,
-            "_pending_action_input": None,
+            "pending_action": None,
+            "pending_action_input": None,
         }
 
 
@@ -270,17 +269,8 @@ async def conclude_node(state: DeepSearchState) -> dict[str, Any]:
         current_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
         logger.info("Injecting current time into report prompt", current_time=current_time)
 
-        # Initialize LLM with thinking mode enabled via extra_body
-        llm_kwargs = {
-            "model": settings.openai_chat_model,
-            "api_key": settings.openai_api_key,
-            "temperature": 0.6,
-            "extra_body": {"enable_thinking": True},  # DashScope thinking mode
-        }
-        if settings.openai_base_url:
-            llm_kwargs["base_url"] = settings.openai_base_url
-
-        llm = ChatOpenAI(**llm_kwargs)
+        # Get LLM service
+        llm_service = get_llm_service()
 
         # Build prompt with current time injected
         collected_info_str = format_collected_info(state.get("collected_info", []))
@@ -295,9 +285,11 @@ async def conclude_node(state: DeepSearchState) -> dict[str, Any]:
         )
 
         # Generate report
-        response = await llm.ainvoke(prompt)
-        # Extract content, potentially including reasoning_content from thinking mode
-        report = _extract_thinking_response(response)
+        report = await llm_service.conclude_deep_search(
+            prompt=prompt,
+            temperature=0.6,
+            enable_thinking=True,
+        )
 
         logger.info("Report generated", length=len(report))
 
@@ -334,23 +326,6 @@ def _extract_json(text: str) -> str:
     return text
 
 
-def _normalize_response_content(content: Any) -> str:
-    """Normalize LangChain response content into plain text."""
-    if isinstance(content, str):
-        return content
-
-    if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-            elif isinstance(item, dict) and item.get("type") == "text":
-                parts.append(str(item.get("text", "")))
-        return "".join(parts)
-
-    return str(content)
-
-
 def _repair_partial_json(text: str) -> str | None:
     """Attempt lightweight JSON repair for truncated LLM responses."""
     extracted = _extract_json(text).strip()
@@ -376,12 +351,12 @@ def _repair_partial_json(text: str) -> str | None:
 
 
 async def _parse_reasoning_decision(
-    llm: ChatOpenAI,
-    messages: list[tuple[str, str]],
+    llm_service,
+    system_prompt: str,
+    user_prompt: str,
     response_text: str,
 ) -> dict[str, Any]:
     """Parse the reasoning response with repair and one-shot retry."""
-    # Log the raw response for debugging
     logger.info("Parsing reasoning response", response_length=len(response_text))
 
     try:
@@ -391,7 +366,11 @@ async def _parse_reasoning_decision(
         logger.debug("Parsed JSON", keys=list(parsed.keys()))
         return _validate_reasoning_decision(parsed)
     except json.JSONDecodeError as e:
-        logger.warning("Failed to parse LLM response as JSON", error=str(e), response=response_text[:300])
+        logger.warning(
+            "Failed to parse LLM response as JSON",
+            error=str(e),
+            response=response_text[:300],
+        )
     except ValueError as exc:
         logger.warning("LLM JSON missing required fields", error=str(exc))
 
@@ -404,14 +383,21 @@ async def _parse_reasoning_decision(
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning("Repair attempt failed", error=str(e))
 
-    retry_messages = messages + [
+    # Retry with LLM
+    retry_messages = [
+        ("system", system_prompt),
+        ("user", user_prompt),
         ("assistant", response_text[:4000]),
         ("user", get_prompt("deep_search.json_repair").template),
     ]
 
     try:
-        retry_response = await llm.ainvoke(retry_messages)
-        retry_text = _normalize_response_content(retry_response.content)
+        retry_text = await llm_service.reasoning_analysis(
+            system_prompt=system_prompt,
+            user_prompt="\n".join(f"{role}: {content}" for role, content in retry_messages[-2:]),
+            temperature=0.6,
+            enable_thinking=False,
+        )
         return _validate_reasoning_decision(json.loads(_extract_json(retry_text)))
     except Exception as exc:
         logger.warning("Failed to recover LLM JSON response", error=str(exc))
@@ -431,23 +417,3 @@ def _validate_reasoning_decision(decision: dict[str, Any]) -> dict[str, Any]:
     if decision["action"] != "conclude" and decision.get("action_input") is None:
         raise ValueError("Missing action_input for non-conclude action")
     return decision
-
-
-def _extract_thinking_response(response: Any) -> str:
-    """Extract content from thinking mode response.
-
-    When enable_thinking=True, the response may include:
-    - content: The final output
-    - reasoning_content: The thinking process (optional)
-
-    Returns the content, logging reasoning if present.
-    """
-    content = response.content if hasattr(response, "content") else str(response)
-
-    # Check for reasoning_content (thinking mode output)
-    if hasattr(response, "additional_kwargs") and response.additional_kwargs:
-        reasoning = response.additional_kwargs.get("reasoning_content")
-        if reasoning:
-            logger.debug("Thinking process completed", reasoning_length=len(reasoning))
-
-    return content

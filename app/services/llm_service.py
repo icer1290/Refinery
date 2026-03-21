@@ -606,6 +606,415 @@ class LLMService:
             return text[start:end]
         return text
 
+    def _create_llm_with_options(
+        self,
+        temperature: Optional[float] = None,
+        enable_thinking: Optional[bool] = None,
+    ) -> ChatOpenAI:
+        """Create a ChatOpenAI instance with custom options.
+
+        Args:
+            temperature: Override temperature (optional)
+            enable_thinking: Override thinking mode (optional)
+
+        Returns:
+            ChatOpenAI instance with specified options
+        """
+        kwargs = {
+            "model": self.model,
+            "api_key": self.api_key,
+            "temperature": temperature if temperature is not None else settings.llm_temperature,
+            "extra_body": {
+                "enable_thinking": enable_thinking
+                if enable_thinking is not None
+                else settings.llm_enable_thinking
+            },
+        }
+
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+
+        return ChatOpenAI(**kwargs)
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
+    async def reasoning_analysis(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.6,
+        enable_thinking: bool = True,
+    ) -> str:
+        """Perform reasoning analysis for ReAct loop.
+
+        Args:
+            system_prompt: System message for the LLM
+            user_prompt: User message for the LLM
+            temperature: Temperature for this call (default: 0.6)
+            enable_thinking: Enable thinking mode (default: True)
+
+        Returns:
+            LLM response content
+        """
+        llm = self._create_llm_with_options(temperature=temperature, enable_thinking=enable_thinking)
+
+        try:
+            messages = [
+                ("system", system_prompt),
+                ("user", user_prompt),
+            ]
+            response = await llm.ainvoke(messages)
+            return self._normalize_response_content(response.content)
+
+        except Exception as e:
+            logger.warning(
+                "Reasoning analysis attempt failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise LLMError(
+                f"Failed reasoning analysis: {str(e)}",
+                {"error": str(e)},
+            )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
+    async def extract_entities(
+        self,
+        title: str,
+        content: str,
+        source: str = "",
+        published_at: str = "Unknown",
+        temperature: float = 0.3,
+    ) -> list[dict[str, Any]]:
+        """Extract entities from article content using LLM.
+
+        Args:
+            title: Article title
+            content: Article content
+            source: Article source (optional)
+            published_at: Publication date (optional)
+            temperature: Temperature for this call (default: 0.3)
+
+        Returns:
+            List of extracted entities
+        """
+        llm = self._create_llm_with_options(temperature=temperature, enable_thinking=False)
+
+        try:
+            from app.deep_graph.prompts import (
+                ENTITY_EXTRACTION_SYSTEM_PROMPT,
+                ENTITY_EXTRACTION_USER_PROMPT,
+                format_entity_types,
+            )
+
+            system_prompt = ENTITY_EXTRACTION_SYSTEM_PROMPT.format(
+                entity_types_desc=format_entity_types()
+            )
+            user_prompt = ENTITY_EXTRACTION_USER_PROMPT.format(
+                title=title,
+                source=source,
+                published_at=published_at,
+                content=content[:4000],
+            )
+
+            messages = [
+                ("system", system_prompt),
+                ("user", user_prompt),
+            ]
+
+            response = await llm.ainvoke(messages)
+            response_text = self._normalize_response_content(response.content)
+
+            # Parse JSON response
+            json_str = self._extract_json(response_text)
+            data = json.loads(json_str)
+
+            entities = data.get("entities", [])
+            return [
+                {
+                    "name": e.get("name", ""),
+                    "type": e.get("type", "CONCEPT"),
+                    "description": e.get("description", ""),
+                    "mentions": e.get("mentions", []),
+                    "confidence": e.get("confidence", 0.5),
+                }
+                for e in entities
+                if e.get("name")
+            ]
+
+        except json.JSONDecodeError:
+            # Try repair
+            repaired = self._repair_partial_json(response_text)
+            if repaired:
+                try:
+                    data = json.loads(repaired)
+                    entities = data.get("entities", [])
+                    return [
+                        {
+                            "name": e.get("name", ""),
+                            "type": e.get("type", "CONCEPT"),
+                            "description": e.get("description", ""),
+                            "mentions": e.get("mentions", []),
+                            "confidence": e.get("confidence", 0.5),
+                        }
+                        for e in entities
+                        if e.get("name")
+                    ]
+                except Exception:
+                    pass
+            logger.warning("Failed to parse entity extraction response")
+            return []
+
+        except Exception as e:
+            logger.warning(
+                "Entity extraction failed",
+                title=title[:50],
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise LLMError(
+                f"Failed entity extraction: {str(e)}",
+                {"title": title, "error": str(e)},
+            )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
+    async def extract_relationships(
+        self,
+        title: str,
+        content: str,
+        entities: list[dict[str, Any]],
+        source: str = "",
+        temperature: float = 0.3,
+    ) -> list[dict[str, Any]]:
+        """Extract relationships between entities using LLM.
+
+        Args:
+            title: Article title
+            content: Article content
+            entities: Already extracted entities
+            source: Article source (optional)
+            temperature: Temperature for this call (default: 0.3)
+
+        Returns:
+            List of extracted relationships
+        """
+        if not entities:
+            return []
+
+        llm = self._create_llm_with_options(temperature=temperature, enable_thinking=False)
+
+        try:
+            from app.deep_graph.prompts import (
+                RELATIONSHIP_EXTRACTION_SYSTEM_PROMPT,
+                RELATIONSHIP_EXTRACTION_USER_PROMPT,
+                format_entities_for_prompt,
+            )
+
+            user_prompt = RELATIONSHIP_EXTRACTION_USER_PROMPT.format(
+                title=title,
+                source=source,
+                content=content[:4000],
+                entities=format_entities_for_prompt(entities),
+            )
+
+            messages = [
+                ("system", RELATIONSHIP_EXTRACTION_SYSTEM_PROMPT),
+                ("user", user_prompt),
+            ]
+
+            response = await llm.ainvoke(messages)
+            response_text = self._normalize_response_content(response.content)
+
+            # Parse JSON response
+            json_str = self._extract_json(response_text)
+            data = json.loads(json_str)
+
+            relationships = data.get("relationships", [])
+            return [
+                {
+                    "source_entity": r.get("source_entity", ""),
+                    "target_entity": r.get("target_entity", ""),
+                    "relation_type": r.get("relation_type", "related_to"),
+                    "description": r.get("description", ""),
+                    "evidence": r.get("evidence", ""),
+                }
+                for r in relationships
+                if r.get("source_entity") and r.get("target_entity")
+            ]
+
+        except json.JSONDecodeError:
+            repaired = self._repair_partial_json(response_text)
+            if repaired:
+                try:
+                    data = json.loads(repaired)
+                    relationships = data.get("relationships", [])
+                    return [
+                        {
+                            "source_entity": r.get("source_entity", ""),
+                            "target_entity": r.get("target_entity", ""),
+                            "relation_type": r.get("relation_type", "related_to"),
+                            "description": r.get("description", ""),
+                            "evidence": r.get("evidence", ""),
+                        }
+                        for r in relationships
+                        if r.get("source_entity") and r.get("target_entity")
+                    ]
+                except Exception:
+                    pass
+            logger.warning("Failed to parse relationship extraction response")
+            return []
+
+        except Exception as e:
+            logger.warning(
+                "Relationship extraction failed",
+                title=title[:50],
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise LLMError(
+                f"Failed relationship extraction: {str(e)}",
+                {"title": title, "error": str(e)},
+            )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
+    async def generate_deep_graph_report(
+        self,
+        prompt: str,
+        temperature: float = 0.6,
+        enable_thinking: bool = True,
+    ) -> str:
+        """Generate DeepGraph analysis report using LLM.
+
+        Args:
+            prompt: Formatted prompt for report generation
+            temperature: Temperature for this call (default: 0.6)
+            enable_thinking: Enable thinking mode (default: True)
+
+        Returns:
+            Generated report content
+        """
+        llm = self._create_llm_with_options(temperature=temperature, enable_thinking=enable_thinking)
+
+        try:
+            response = await llm.ainvoke(prompt)
+            return self._normalize_response_content(response.content)
+
+        except Exception as e:
+            logger.warning(
+                "DeepGraph report generation failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise LLMError(
+                f"Failed to generate DeepGraph report: {str(e)}",
+                {"error": str(e)},
+            )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
+    async def conclude_deep_search(
+        self,
+        prompt: str,
+        temperature: float = 0.6,
+        enable_thinking: bool = True,
+    ) -> str:
+        """Generate conclusion for deep search using LLM.
+
+        Args:
+            prompt: Formatted prompt for conclusion generation
+            temperature: Temperature for this call (default: 0.6)
+            enable_thinking: Enable thinking mode (default: True)
+
+        Returns:
+            Generated conclusion content
+        """
+        llm = self._create_llm_with_options(temperature=temperature, enable_thinking=enable_thinking)
+
+        try:
+            response = await llm.ainvoke(prompt)
+            return self._extract_thinking_response(response)
+
+        except Exception as e:
+            logger.warning(
+                "Deep search conclusion failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise LLMError(
+                f"Failed to generate deep search conclusion: {str(e)}",
+                {"error": str(e)},
+            )
+
+    def _normalize_response_content(self, content: Any) -> str:
+        """Normalize LangChain response content into plain text."""
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict) and item.get("type") == "text":
+                    parts.append(str(item.get("text", "")))
+            return "".join(parts)
+
+        return str(content)
+
+    def _extract_thinking_response(self, response: Any) -> str:
+        """Extract content from thinking mode response.
+
+        When enable_thinking=True, the response may include:
+        - content: The final output
+        - reasoning_content: The thinking process (optional)
+
+        Returns the content, logging reasoning if present.
+        """
+        content = response.content if hasattr(response, "content") else str(response)
+
+        if hasattr(response, "additional_kwargs") and response.additional_kwargs:
+            reasoning = response.additional_kwargs.get("reasoning_content")
+            if reasoning:
+                logger.debug("Thinking process completed", reasoning_length=len(reasoning))
+
+        return content
+
+    def _repair_partial_json(self, text: str) -> str | None:
+        """Attempt lightweight JSON repair for truncated LLM responses."""
+        extracted = self._extract_json(text).strip()
+        if not extracted:
+            return None
+
+        quote_count = extracted.count('"')
+        if quote_count % 2 == 1:
+            extracted += '"'
+
+        open_braces = extracted.count("{")
+        close_braces = extracted.count("}")
+        if open_braces > close_braces:
+            extracted += "}" * (open_braces - close_braces)
+
+        open_brackets = extracted.count("[")
+        close_brackets = extracted.count("]")
+        if open_brackets > close_brackets:
+            extracted += "]" * (open_brackets - close_brackets)
+
+        extracted = re.sub(r",\s*([}\]])", r"\1", extracted)
+        return extracted
+
 
 # Singleton instance
 _llm_service: Optional[LLMService] = None
