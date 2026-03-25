@@ -241,7 +241,8 @@ class LLMService:
         original_content: str,
     ) -> str:
         """Build prompt for reflection check."""
-        content_preview = original_content[:500] if original_content else "（无内容）"
+        # Use full content preview to capture more entities mentioned later in articles
+        content_preview = original_content if original_content else "（无内容）"
         return get_prompt("reflection.check").format(
             original_title=original_title,
             original_content_preview=content_preview,

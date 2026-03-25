@@ -189,6 +189,7 @@ register_prompt(
 ### 3. 实体保留检查
 - 重要人名、公司名、产品名是否正确处理
 - 未出现错误的中文翻译或遗漏
+- 注意：原文内容片段仅为预览，若实体在片段中未出现但可能在原文其他部分存在，请谨慎判断，标注"需核实"而非直接判定为幻觉
 
 ## 判定标准
 - 三项全部通过: passed = true
@@ -204,7 +205,7 @@ register_prompt(
 只返回JSON，不要添加其他内容。""",
         variables=["original_title", "original_content_preview", "chinese_title", "chinese_summary"],
         description="Translation quality reflection check prompt",
-        version="1.0.0",
+        version="1.1.0",
     )
 )
 

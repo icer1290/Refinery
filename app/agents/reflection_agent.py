@@ -184,7 +184,33 @@ class ReflectionAgent(BaseAgent):
                             article["reflection_retries"] = retries
                             return article
 
-                        issues = result.issues or []
+                        # Filter out format-related issues since quick check already passed
+                        # LLM often gives wrong format analysis; trust the quick check for format
+                        raw_issues = result.issues or []
+                        issues = [
+                            issue for issue in raw_issues
+                            if not any(fmt in issue for fmt in [
+                                "标题格式", "摘要结构", "第二段格式", "第三段格式",
+                                "要点", "主编洞察", "段落", "空行"
+                            ])
+                        ]
+                        if issues:
+                            self.logger.info(
+                                "LLM reflection found semantic issues (format issues ignored)",
+                                article_url=article.get("source_url"),
+                                semantic_issues=issues[:2],
+                                ignored_format_issues=[i for i in raw_issues if i not in issues][:2],
+                            )
+                        else:
+                            # No semantic issues after filtering format issues, article passes
+                            self.logger.info(
+                                "LLM reflection passed (format issues were incorrect, ignoring)",
+                                article_url=article.get("source_url"),
+                            )
+                            article["reflection_passed"] = True
+                            article["reflection_feedback"] = None
+                            article["reflection_retries"] = retries
+                            return article
                     else:
                         # Quick check found issues, skip LLM reflection and retry directly
                         issues = quick_issues
