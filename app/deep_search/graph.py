@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+from langsmith import traceable
 from langgraph.graph import END, StateGraph
 from langgraph.runtime import Runtime
 from sqlalchemy import select
@@ -101,6 +102,7 @@ def create_deep_search_graph():
     return graph.compile()
 
 
+@traceable(name="DeepSearch", project_name=settings.langsmith_project)
 async def run_deep_search(
     session: AsyncSession,
     article_id: str,

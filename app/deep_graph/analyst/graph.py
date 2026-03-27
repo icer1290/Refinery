@@ -66,7 +66,7 @@ def _get_analyst_metadata_wrapper(args, kwargs):
 
 
 @traceable(
-    name="DeepGraphAnalyst_Workflow",
+    name="DeepGraph",
     project_name=settings.langsmith_project,
     tags=DEEPGRAPH_TAGS + ["on-demand"],
     metadata_getter=_get_analyst_metadata_wrapper,

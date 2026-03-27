@@ -3,10 +3,12 @@
 import uuid
 from datetime import datetime, timezone
 
+from langsmith import traceable
 from langgraph.graph import END, StateGraph
 from langgraph.runtime import Runtime
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.core import get_logger
 from app.models.orm_models import WorkflowRun
 from app.workflow.context import WorkflowContext
@@ -22,6 +24,7 @@ from app.workflow.nodes import (
 from app.workflow.state import WorkflowState, create_initial_state
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 def create_workflow_graph():
@@ -53,6 +56,7 @@ def create_workflow_graph():
     return workflow.compile()
 
 
+@traceable(name="Workflow", project_name=settings.langsmith_project)
 async def run_workflow(
     session: AsyncSession,
     feed_urls: list[str] | None = None,
