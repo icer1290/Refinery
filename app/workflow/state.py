@@ -91,6 +91,7 @@ class WorkflowState(TypedDict):
     feed_urls: list[str] | None
     score_threshold: float | None
     force_reprocess: bool
+    hours_back: int  # Hours to look back for RSS entries
 
     # Article collections (using Annotated for list merging)
     raw_articles: Annotated[list[ArticleCandidate], operator.add]
@@ -119,6 +120,7 @@ def create_initial_state(
     feed_urls: list[str] | None = None,
     score_threshold: float | None = None,
     force_reprocess: bool = False,
+    hours_back: int = 24,
 ) -> WorkflowState:
     """Create initial workflow state.
 
@@ -127,6 +129,7 @@ def create_initial_state(
         feed_urls: Specific feeds to fetch (optional)
         score_threshold: Override score threshold (optional)
         force_reprocess: Force reprocessing existing articles
+        hours_back: Hours to look back for RSS entries (default: 24)
 
     Returns:
         Initial workflow state
@@ -136,6 +139,7 @@ def create_initial_state(
         feed_urls=feed_urls,
         score_threshold=score_threshold,
         force_reprocess=force_reprocess,
+        hours_back=hours_back,
         raw_articles=[],
         deduplicated_articles=[],
         scored_articles=[],

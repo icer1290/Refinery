@@ -47,6 +47,7 @@ async def trigger_workflow(
             feed_urls=request.feed_urls,
             score_threshold=request.score_threshold,
             force_reprocess=request.force,
+            hours_back=request.hours_back or 24,
         )
 
         # Get the workflow run record

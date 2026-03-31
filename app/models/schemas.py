@@ -135,6 +135,12 @@ class WorkflowTriggerRequest(BaseModel):
     force: bool = Field(
         default=False, description="Force reprocessing of existing articles"
     )
+    hours_back: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=168,  # Max 7 days
+        description="Only fetch articles from the last N hours (default: 24)",
+    )
 
 
 # === Scoring Schemas ===

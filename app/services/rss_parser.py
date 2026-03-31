@@ -134,7 +134,7 @@ class RSSParser:
         )
 
     async def parse_entries(
-        self, feed_url: str, feed_name: str
+        self, feed_url: str, feed_name: str, hours_back: int | None = None
     ) -> list[dict[str, Any]]:
         """Parse entries from an RSS feed, filtering by time.
 
@@ -143,17 +143,19 @@ class RSSParser:
         Args:
             feed_url: URL of the RSS feed
             feed_name: Name of the feed source
+            hours_back: Hours to look back (optional, defaults to instance setting)
 
         Returns:
-            List of parsed entries with standardized fields (last 24h only)
+            List of parsed entries with standardized fields
         """
+        effective_hours = hours_back if hours_back is not None else self.hours_back
         feed = await self.fetch_feed(feed_url)
         entries = []
         skipped_old = 0
 
         # Calculate time threshold
         now = datetime.now(timezone.utc)
-        time_threshold = now - timedelta(hours=self.hours_back)
+        time_threshold = now - timedelta(hours=effective_hours)
 
         for entry in feed.entries:
             try:
@@ -188,7 +190,7 @@ class RSSParser:
             feed_url=feed_url,
             entries_count=len(entries),
             skipped_old=skipped_old,
-            hours_back=self.hours_back,
+            hours_back=effective_hours,
         )
 
         return entries

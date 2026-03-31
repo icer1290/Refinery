@@ -43,7 +43,10 @@ async def scout_node(state: WorkflowState) -> dict[str, Any]:
 
     try:
         # Fetch articles from feeds
-        articles = await scout_agent.execute(state.get("feed_urls"))
+        articles = await scout_agent.execute(
+            feed_urls=state.get("feed_urls"),
+            hours_back=state["hours_back"],
+        )
 
         # Update statistics
         total_feeds = len(state.get("feed_urls") or settings.default_rss_feeds)

@@ -18,12 +18,15 @@ class ScoutAgent(BaseAgent):
         super().__init__("Scout")
         self.rss_parser = rss_parser
 
-    async def execute(self, feed_urls: list[str] | None = None) -> list[dict[str, Any]]:
+    async def execute(
+        self, feed_urls: list[str] | None = None, hours_back: int = 24
+    ) -> list[dict[str, Any]]:
         """Fetch and parse RSS feeds.
 
         Args:
             feed_urls: List of RSS feed URLs to fetch.
                       If None, uses default feeds from config.
+            hours_back: Hours to look back for RSS entries (default: 24)
 
         Returns:
             List of parsed articles with standardized fields
@@ -31,7 +34,7 @@ class ScoutAgent(BaseAgent):
         urls = feed_urls or settings.default_rss_feeds
 
         # Fetch feeds concurrently
-        tasks = [self._fetch_feed(url) for url in urls]
+        tasks = [self._fetch_feed(url, hours_back) for url in urls]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Collect all articles
@@ -53,11 +56,14 @@ class ScoutAgent(BaseAgent):
 
         return all_articles
 
-    async def _fetch_feed(self, url: str) -> list[dict[str, Any]]:
+    async def _fetch_feed(
+        self, url: str, hours_back: int = 24
+    ) -> list[dict[str, Any]]:
         """Fetch a single RSS feed.
 
         Args:
             url: RSS feed URL
+            hours_back: Hours to look back for RSS entries
 
         Returns:
             List of parsed articles from this feed
@@ -66,7 +72,7 @@ class ScoutAgent(BaseAgent):
             # Extract feed name from URL
             feed_name = self._extract_feed_name(url)
 
-            entries = await self.rss_parser.parse_entries(url, feed_name)
+            entries = await self.rss_parser.parse_entries(url, feed_name, hours_back)
             return entries
 
         except RSSParseError as e:

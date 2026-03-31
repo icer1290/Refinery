@@ -62,6 +62,7 @@ async def run_workflow(
     feed_urls: list[str] | None = None,
     score_threshold: float | None = None,
     force_reprocess: bool = False,
+    hours_back: int = 24,
 ) -> WorkflowState:
     """Execute the news aggregation workflow.
 
@@ -70,6 +71,7 @@ async def run_workflow(
         feed_urls: Specific RSS feeds to fetch (optional)
         score_threshold: Override score threshold (optional)
         force_reprocess: Force reprocessing existing articles
+        hours_back: Hours to look back for RSS entries (default: 24)
 
     Returns:
         Final workflow state
@@ -96,6 +98,7 @@ async def run_workflow(
         feed_urls=feed_urls,
         score_threshold=score_threshold,
         force_reprocess=force_reprocess,
+        hours_back=hours_back,
     )
 
     # Create the graph
