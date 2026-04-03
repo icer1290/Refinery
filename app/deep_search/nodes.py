@@ -18,7 +18,7 @@ from app.deep_search.prompts import (
     format_collected_info,
 )
 from app.deep_search.state import DeepSearchState
-from app.deep_search.tools import execute_tool
+from app.tools import execute_tool, get_available_tool_names
 from app.prompts import get_prompt
 from app.services.llm_service import get_llm_service
 
@@ -150,7 +150,8 @@ async def reasoning_node(state: DeepSearchState) -> dict[str, Any]:
         action = decision.get("action", "conclude")
         action_input = decision.get("action_input")
 
-        if action not in {"vector_search", "web_search", "conclude"}:
+        valid_actions = set(get_available_tool_names()) | {"conclude"}
+        if action not in valid_actions:
             logger.warning("LLM returned unknown action", action=action)
             action = "conclude"
             action_input = None
