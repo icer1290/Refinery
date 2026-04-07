@@ -12,6 +12,7 @@ An AI-powered tech news aggregation system built with LangGraph, FastAPI, and Po
 - **Self-reflection**: Validates translation quality with automatic retry mechanism
 - **Deep Search**: On-demand article research via ReAct loop with web search (DuckDuckGo/Tavily)
 - **GraphRAG**: Knowledge graph construction with community detection for contextual analysis
+- **Multi-turn Chat**: Conversational AI with multi-agent architecture, ReAct loop, and multi-layer memory
 - **Vector Storage**: PostgreSQL with pgvector extension for vector storage and graph data
 
 ## Architecture
@@ -35,10 +36,21 @@ Two-phase knowledge graph system:
 - **Background GraphBuilder**: Extract entities/relationships, detect communities (Leiden algorithm)
 - **On-demand GraphAnalyst**: Fetch subgraph, expand via traversal, generate analysis
 
+### Multi-turn Chat (Hub-and-Spoke Architecture)
+
+Conversational AI with multi-agent coordination:
+- **Supervisor**: Central hub that evaluates intent and routes to specialist agents
+- **Researcher**: ReAct loop agent (think → tool → think → ... → conclude) for deep information gathering
+- **Explainer**: Provides article explanations and context
+- **Fact Checker**: Validates claims against knowledge graph and web sources
+- **Multi-layer Memory**: Short-term (session), mid-term (conversation), and long-term (persistent) memory
+- **Auto-Compact**: Context compression when approaching token limits
+
 ## Tech Stack
 
 - **Backend**: FastAPI, LangGraph, LangChain
 - **Database**: PostgreSQL + pgvector
+- **Cache**: Redis (optional, for session caching)
 - **AI**: OpenAI or compatible APIs (DashScope, Azure, Ollama)
 - **RSS/Web**: feedparser, trafilatura, httpx, duckduckgo-search
 
@@ -126,6 +138,17 @@ All endpoints under `/api/v1/`:
 |----------|--------|-------------|
 | `/deep-graph/analyze` | POST | Generate knowledge graph analysis |
 
+### Chat
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/chat/conversations` | POST | Create new conversation for an article |
+| `/chat/conversations` | GET | List user's conversations |
+| `/chat/conversations/{id}` | GET | Get conversation details |
+| `/chat/conversations/{id}/history` | GET | Get message history |
+| `/chat/chat` | POST | Send message and get AI response |
+| `/chat/conversations/{id}` | DELETE | Archive conversation |
+
 ### Health
 
 | Endpoint | Method | Description |
@@ -141,10 +164,16 @@ All endpoints under `/api/v1/`:
 | `DATABASE_URL` | Yes | PostgreSQL connection URL |
 | `OPENAI_API_KEY` | Yes | OpenAI or compatible API key |
 | `OPENAI_CHAT_MODEL` | Yes | Chat model (e.g., gpt-4o-mini, qwen3.5-35b-a3b) |
-| `OPENAI_EMBEDDING_MODEL` | Yes | Embedding model (e.g., text-embedding-3-small) |
+| `OPENAI_EMBEDDING_MODEL` | Yes | Embedding model (e.g., text-embedding-3-small, text-embedding-v4) |
 | `OPENAI_BASE_URL` | No | Override API base URL (for DashScope, Azure, Ollama) |
 | `WEB_SEARCH_PROVIDER` | No | Provider: "duckduckgo" or "tavily" (default: duckduckgo) |
 | `RERANK_PROVIDER` | No | Provider: "none", "dashscope", "cohere", "jina" |
+| `REDIS_URL` | No | Redis connection URL for session caching |
+| `REDIS_ENABLED` | No | Enable Redis caching (default: true) |
+| `CHAT_MAX_TOKENS` | No | Max context tokens for chat (default: 254000) |
+| `CHAT_CONTEXT_THRESHOLD` | No | Compression threshold (default: 0.7) |
+| `CHAT_SESSION_TTL` | No | Session cache TTL in seconds (default: 1800) |
+| `CHAT_MEMORY_TTL` | No | Memory cache TTL in seconds (default: 86400) |
 
 See `.env.example` for complete configuration options.
 
@@ -167,6 +196,10 @@ ai-engine/
 │   ├── workflow/      # Main workflow graph and nodes
 │   ├── deep_search/   # ReAct loop for deep research
 │   ├── deep_graph/    # GraphRAG builder and analyst
+│   ├── chat/          # Multi-turn chat with multi-agent architecture
+│   │   ├── agents/    # Supervisor, Researcher, Explainer, FactChecker
+│   │   ├── memory/    # Multi-layer memory management
+│   │   └── graph.py   # Hub-and-spoke workflow
 │   ├── services/      # RAG services (embedding, vector_store, reranker, etc.)
 │   ├── prompts/       # Centralized prompt templates
 │   ├── core/          # Exceptions, logging
