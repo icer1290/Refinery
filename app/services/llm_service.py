@@ -684,6 +684,65 @@ class LLMService:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
     )
+    async def chat_completion(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.5,
+        max_tokens: int = 1000,
+        enable_thinking: bool = False,
+    ) -> str:
+        """Generate chat completion response.
+
+        A simplified method for chat-based interactions, used by
+        chat agents for routing, explanation, and research.
+
+        Args:
+            system_prompt: System message for the LLM
+            user_prompt: User message for the LLM
+            temperature: Temperature for this call (default: 0.5)
+            max_tokens: Maximum tokens in response (default: 1000)
+            enable_thinking: Enable thinking mode (default: False)
+
+        Returns:
+            LLM response content
+        """
+        kwargs = {
+            "model": self.model,
+            "api_key": self.api_key,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "extra_body": {"enable_thinking": enable_thinking},
+        }
+
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+
+        llm = ChatOpenAI(**kwargs)
+
+        try:
+            messages = [
+                ("system", system_prompt),
+                ("user", user_prompt),
+            ]
+            response = await llm.ainvoke(messages)
+            return self._normalize_response_content(response.content)
+
+        except Exception as e:
+            logger.warning(
+                "Chat completion attempt failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise LLMError(
+                f"Failed chat completion: {str(e)}",
+                {"error": str(e)},
+            )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
     async def extract_entities(
         self,
         title: str,

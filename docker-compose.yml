@@ -26,6 +26,8 @@ services:
     environment:
       FORCE_COLOR: "true"
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/news_aggregator
+      REDIS_URL: redis://redis:6379/0
+      REDIS_ENABLED: "true"
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-v4}
@@ -39,6 +41,22 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      
+  redis:
+    image: redis:7-alpine
+    container_name: ai-engine-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/var/lib/redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  redis_data:

@@ -128,6 +128,20 @@ class Settings(BaseSettings):
     deepgraph_expansion_limit: int = 50
     deepgraph_entity_similarity_threshold: float = 0.85
 
+    # === Redis Configuration ===
+    redis_url: Optional[str] = None  # e.g., "redis://localhost:6379/0"
+    redis_enabled: bool = False
+
+    # === Chat Configuration ===
+    chat_max_tokens: int = 1000  # Context window size
+    chat_context_threshold: float = 0.7  # Compression threshold (70%)
+    chat_tool_expiry_minutes: int = 30  # Micro-compact expiry
+    chat_extraction_interval: int = 5  # Memory extraction every N tool calls
+    chat_session_ttl: int = 1800  # Redis session TTL (seconds, 30 min)
+    chat_memory_ttl: int = 86400  # Redis memory TTL (seconds, 24 hr)
+    chat_history_ttl: int = 3600  # Redis history cache TTL (seconds, 1 hr)
+    chat_max_research_iterations: int = 5  # Max ReAct iterations for researcher
+
     # === CORS Settings (comma-separated strings) ===
     cors_origins: str = "http://localhost:3000"  # Safe default for local development
     cors_allow_credentials: bool = True

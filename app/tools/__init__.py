@@ -3,7 +3,8 @@
 This package provides:
 - BaseTool: Abstract base class for tools
 - Registry functions: register_tool, get_tool, get_available_tool_names, execute_tool
-- Tool implementations: VectorSearchTool, WebSearchTool, QueryExpandTool
+- Tool implementations: VectorSearchTool, WebSearchTool, QueryExpandTool, ArticleLookupTool,
+  CitationLookupTool, ConversationHistoryTool, RelatedArticlesTool
 
 Usage:
     from app.tools import execute_tool, get_available_tool_names
@@ -35,6 +36,10 @@ from app.tools.registry import (
 from app.tools.vector_search import VectorSearchTool
 from app.tools.web_search import WebSearchTool
 from app.tools.query_expand import QueryExpandTool
+from app.tools.article_lookup import ArticleLookupTool
+from app.tools.citation_lookup import CitationLookupTool
+from app.tools.conversation_history import ConversationHistoryTool
+from app.tools.related_articles import RelatedArticlesTool
 
 __all__ = [
     "BaseTool",
@@ -45,4 +50,8 @@ __all__ = [
     "VectorSearchTool",
     "WebSearchTool",
     "QueryExpandTool",
+    "ArticleLookupTool",
+    "CitationLookupTool",
+    "ConversationHistoryTool",
+    "RelatedArticlesTool",
 ]

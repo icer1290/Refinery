@@ -353,3 +353,124 @@ class DeepGraphAnalysis(Base):
         Index("ix_deepgraph_analyses_user_id", user_id),
         Index("ix_deepgraph_analyses_created_at", created_at),
     )
+
+
+class ChatConversation(Base):
+    """Chat conversation thread for per-article discussions.
+
+    Each conversation is tied to a specific news article and user.
+    """
+
+    __tablename__ = "chat_conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("news_articles.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    title: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, archived, deleted
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+
+    # Relationships
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        "ChatMessage", back_populates="conversation", cascade="all, delete-orphan"
+    )
+    memories: Mapped[list["ChatMemory"]] = relationship(
+        "ChatMemory", back_populates="conversation", cascade="all, delete-orphan"
+    )
+    article: Mapped["NewsArticle"] = relationship("NewsArticle")
+
+    __table_args__ = (
+        Index("ix_chat_conversations_article_id", article_id),
+        Index("ix_chat_conversations_user_id", user_id),
+        Index("ix_chat_conversations_status", status),
+    )
+
+
+class ChatMessage(Base):
+    """Individual message in a chat conversation.
+
+    Supports user, assistant, system, and tool message types.
+    """
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # user, assistant, system, tool
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_name: Mapped[str | None] = mapped_column(String(50))  # supervisor, researcher, explainer, fact_checker
+    tool_calls: Mapped[list | None] = mapped_column(JSON)  # [{tool_name, tool_input, timestamp}]
+    tool_results: Mapped[list | None] = mapped_column(JSON)
+    citations: Mapped[list | None] = mapped_column(JSON)
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+
+    # Relationship
+    conversation: Mapped["ChatConversation"] = relationship(
+        "ChatConversation", back_populates="messages"
+    )
+
+    __table_args__ = (
+        Index("ix_chat_messages_conversation_id", conversation_id),
+        Index("ix_chat_messages_created_at", created_at),
+    )
+
+
+class ChatMemory(Base):
+    """Extracted memory for a conversation.
+
+    Stores user profile, conversation state, key citations, and compact boundaries.
+    """
+
+    __tablename__ = "chat_memories"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    memory_type: Mapped[str] = mapped_column(String(30), nullable=False)  # user_profile, conversation_state, key_citations, compact_boundary
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    extracted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+
+    # Relationship
+    conversation: Mapped["ChatConversation"] = relationship(
+        "ChatConversation", back_populates="memories"
+    )
+
+    __table_args__ = (
+        Index("ix_chat_memories_conversation_id", conversation_id),
+        Index("ix_chat_memories_type", memory_type),
+        Index("ix_chat_memories_extracted_at", extracted_at),
+    )

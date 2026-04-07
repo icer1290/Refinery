@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # This is required for LangSmith tracing to work
 load_dotenv()
 
-from app.api.routes import deep_search, deep_graph, health, workflow
+from app.api.routes import chat, deep_search, deep_graph, health, workflow
 from app.config import get_settings
 from app.models.database import init_db
 
@@ -59,6 +59,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(workflow.router, prefix="/api/v1/workflow", tags=["workflow"])
 app.include_router(deep_search.router, prefix="/api/v1", tags=["deep_search"])
 app.include_router(deep_graph.router, prefix="/api/v1", tags=["deep_graph"])
+app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
 
 @app.get("/")

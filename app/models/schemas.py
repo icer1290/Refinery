@@ -411,3 +411,139 @@ class DeepGraphAnalysisListResponse(BaseModel):
 
     analyses: list[DeepGraphAnalysisResponse]
     total: int
+
+
+# === Chat Schemas ===
+
+
+class ConversationCreateRequest(BaseModel):
+    """Schema for creating a conversation."""
+
+    article_id: str = Field(..., description="Article UUID")
+    user_id: int = Field(..., description="User ID from api-server")
+    title: Optional[str] = Field(None, max_length=500, description="Optional conversation title")
+
+
+class ConversationResponse(BaseModel):
+    """Schema for conversation response."""
+
+    id: UUID
+    article_id: UUID
+    user_id: int
+    title: Optional[str] = None
+    status: str = "active"
+    message_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+    last_message_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ConversationListResponse(BaseModel):
+    """Schema for conversation list response."""
+
+    conversations: list[ConversationResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class CitationInfo(BaseModel):
+    """Schema for citation information."""
+
+    source_type: str  # article, web_search, knowledge_graph
+    source_id: Optional[str] = None
+    source_name: str
+    content_snippet: str
+    url: Optional[str] = None
+    relevance_score: Optional[float] = None
+
+
+class ChatMessageResponse(BaseModel):
+    """Schema for individual chat message."""
+
+    id: UUID
+    role: str  # user, assistant, system, tool
+    content: str
+    agent_name: Optional[str] = None
+    citations: Optional[list[CitationInfo]] = None
+    tokens_used: int = 0
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ConversationDetailResponse(BaseModel):
+    """Schema for conversation details with article context."""
+
+    id: UUID
+    article_id: UUID
+    user_id: int
+    title: Optional[str] = None
+    status: str = "active"
+    message_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+    last_message_at: Optional[datetime] = None
+    article_title: Optional[str] = None
+    article_summary: Optional[str] = None
+    has_deepsearch: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class ChatHistoryResponse(BaseModel):
+    """Schema for chat history response."""
+
+    conversation_id: str
+    messages: list[ChatMessageResponse]
+    total: int
+    has_more: bool
+
+
+class ChatRequest(BaseModel):
+    """Schema for chat message request."""
+
+    conversation_id: str = Field(..., description="Conversation UUID")
+    message: str = Field(..., min_length=1, max_length=4000, description="User message")
+    include_deepsearch: bool = Field(default=True, description="Include deepsearch context")
+
+
+class ToolCallInfo(BaseModel):
+    """Schema for tool call information in chat response."""
+
+    tool_name: str
+    tool_input: dict[str, Any]
+    timestamp: str
+
+
+class ChatResponse(BaseModel):
+    """Schema for chat response."""
+
+    conversation_id: str
+    message_id: str
+    response: str
+    agent_used: str  # researcher, explainer, fact_checker
+    citations: list[CitationInfo] = []
+    tool_calls: list[ToolCallInfo] = []
+    tokens_used: int = 0
+    created_at: datetime
+
+
+class UserProfileMemory(BaseModel):
+    """Schema for extracted user profile memory."""
+
+    interests: list[str] = []
+    expertise_level: str = "intermediate"  # beginner, intermediate, advanced
+    preferred_format: str = "detailed"  # detailed, brief, technical
+    follow_up_patterns: list[str] = []
+
+
+class ConversationStateMemory(BaseModel):
+    """Schema for extracted conversation state memory."""
+
+    current_topic: Optional[str] = None
+    information_gathered: list[str] = []
+    open_questions: list[str] = []
+    last_agent: Optional[str] = None
