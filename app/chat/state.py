@@ -144,6 +144,7 @@ class ChatState(TypedDict):
 
     # === Fact Check State ===
     fact_check_result: Optional[FactCheckResult]  # Result of fact check
+    fact_check_failures: int  # Counter for consecutive fact-check failures
 
     # === Tool Tracking ===
     tool_history: Annotated[list[ToolCallRecord], operator.add]
@@ -219,6 +220,7 @@ def create_initial_chat_state(
         generated_response=None,
         # Fact check state
         fact_check_result=None,
+        fact_check_failures=0,
         # Tool tracking
         tool_history=[],
         tool_call_count=0,

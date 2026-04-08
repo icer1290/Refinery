@@ -252,9 +252,9 @@ def _build_supervisor_routing_prompt(state: ChatState) -> str:
     # Format collected info summary
     collected_summary = ""
     if collected_info:
-        for i, info in enumerate(collected_info[:5], 1):
-            content = info.get("content", "")[:200]
-            collected_summary += f"{i}. {info.get('source', 'unknown')}: {content}...\n"
+        for i, info in enumerate(collected_info, 1):
+            content = info.get("content", "")
+            collected_summary += f"{i}. {info.get('source', 'unknown')}: {content}\n"
     else:
         collected_summary = "暂无收集的信息"
 
@@ -273,7 +273,7 @@ def _build_supervisor_routing_prompt(state: ChatState) -> str:
         "has_response": "是" if state.get("generated_response") else "否",
         "fact_check_status": _get_fact_check_status(fact_check_result),
         "article_title": article_context.get("title", "未知"),
-        "article_summary": article_context.get("summary", "")[:300],
+        "article_summary": article_context.get("summary", ""),
         "user_message": state["user_message"],
         "collected_info_summary": collected_summary,
         "fact_check_reason_section": fact_check_section,
@@ -539,7 +539,7 @@ async def researcher_tool_node(
             # Add to collected info
             new_collected_info: CollectedInfo = {
                 "source": tool_name,
-                "content": tool_output[:1000],  # Truncate long outputs
+                "content": tool_output,  # Full output for better context
                 "relevance": thought.get("thought", ""),
                 "metadata": tool_input,
             }
@@ -589,7 +589,7 @@ def _build_researcher_react_prompt(state: ChatState) -> str:
     collected_summary = ""
     if collected_info:
         for i, info in enumerate(collected_info, 1):
-            content = info.get("content", "")[:300]
+            content = info.get("content", "")
             source = info.get("source", "unknown")
             collected_summary += f"{i}. [{source}] {content}\n\n"
     else:
@@ -599,7 +599,7 @@ def _build_researcher_react_prompt(state: ChatState) -> str:
     return prompt.format(
         article_title=article_context.get("title", "未知"),
         article_name=article_context.get("source_name", "未知"),
-        article_summary=article_context.get("summary", "")[:500],
+        article_summary=article_context.get("summary", ""),
         user_message=state["user_message"],
         collected_info_count=len(collected_info),
         collected_info_summary=collected_summary,
@@ -747,14 +747,14 @@ def _build_explainer_prompt(state: ChatState) -> str:
     collected_summary = ""
     if collected_info:
         for i, info in enumerate(collected_info, 1):
-            content = info.get("content", "")[:400]
+            content = info.get("content", "")
             source = info.get("source", "unknown")
             relevance = info.get("relevance", "")
             collected_summary += f"### 信息 {i}\n"
             collected_summary += f"来源：{source}\n"
             collected_summary += f"内容：{content}\n"
             if relevance:
-                collected_summary += f"相关性：{relevance[:100]}\n"
+                collected_summary += f"相关性：{relevance}\n"
             collected_summary += "\n"
     else:
         collected_summary = "未收集到额外信息，请基于文章上下文回答。"
@@ -776,7 +776,7 @@ def _build_explainer_prompt(state: ChatState) -> str:
     return prompt.format(
         article_title=article_context.get("title", "未知"),
         article_name=article_context.get("source_name", "未知"),
-        article_summary=article_context.get("summary", "")[:500],
+        article_summary=article_context.get("summary", ""),
         user_message=state["user_message"],
         collected_info_summary=collected_summary,
         fact_check_issues_section=fact_check_issues_section,
@@ -813,12 +813,14 @@ async def fact_checker_node(
     )
 
     if not generated_response:
+        current_failures = state.get("fact_check_failures", 0)
         return {
             "fact_check_result": FactCheckResult(
                 passed=False,
                 reason="没有生成的回复可供核查",
                 issues=["空回复"],
             ),
+            "fact_check_failures": current_failures + 1,
             "routing_history": ["fact_checker"],
         }
 
@@ -833,7 +835,14 @@ async def fact_checker_node(
             system_prompt=get_prompt("chat.fact_checker_verify").template,
             user_prompt=prompt,
             temperature=0.3,
-            max_tokens=400,
+            max_tokens=800,  # Increased to allow complete JSON response with detailed issues
+        )
+
+        # Log the raw response for debugging
+        logger.info(
+            "Fact checker LLM response",
+            response_preview=response[:200],
+            response_length=len(response),
         )
 
         # Parse result
@@ -845,19 +854,26 @@ async def fact_checker_node(
             issues_count=len(result.get("issues", [])),
         )
 
+        # Update failure counter: increment if failed, reset to 0 if passed
+        current_failures = state.get("fact_check_failures", 0)
+        new_failures = current_failures + 1 if not result.get("passed", False) else 0
+
         return {
             "fact_check_result": result,
+            "fact_check_failures": new_failures,
             "routing_history": ["fact_checker"],
         }
 
     except Exception as e:
         logger.error("Fact checker failed", error=str(e))
+        current_failures = state.get("fact_check_failures", 0)
         return {
             "fact_check_result": FactCheckResult(
-                passed=True,  # Pass on error to avoid blocking
-                reason=f"核查过程出错，默认通过：{str(e)}",
-                issues=[],
+                passed=False,  # Fail on error - fail-safe approach
+                reason=f"核查过程出错：{str(e)}",
+                issues=[f"核查异常: {str(e)[:50]}"],
             ),
+            "fact_check_failures": current_failures + 1,
             "routing_history": ["fact_checker"],
             "errors": [{"phase": "fact_checker", "message": str(e)}],
         }
@@ -873,7 +889,7 @@ def _build_fact_checker_prompt(state: ChatState) -> str:
     collected_summary = ""
     if collected_info:
         for i, info in enumerate(collected_info, 1):
-            content = info.get("content", "")[:300]
+            content = info.get("content", "")
             source = info.get("source", "unknown")
             collected_summary += f"{i}. [{source}] {content}\n"
     else:
@@ -882,14 +898,18 @@ def _build_fact_checker_prompt(state: ChatState) -> str:
     prompt = get_prompt("chat.fact_checker_verify")
     return prompt.format(
         article_title=article_context.get("title", "未知"),
-        article_summary=article_context.get("summary", "")[:300],
+        article_summary=article_context.get("summary", ""),
         collected_info_summary=collected_summary,
         generated_response=generated_response,
     )
 
 
 def _parse_fact_check_result(response: str) -> FactCheckResult:
-    """Parse fact check LLM response."""
+    """Parse fact check LLM response with robust JSON extraction."""
+    # Log raw response for debugging
+    logger.debug("Raw fact check response", response_preview=response[:500])
+
+    # First attempt: direct JSON parse using existing extractor
     try:
         json_str = _extract_json(response)
         parsed = json.loads(json_str)
@@ -900,20 +920,46 @@ def _parse_fact_check_result(response: str) -> FactCheckResult:
             issues=parsed.get("issues", []),
         )
     except (json.JSONDecodeError, ValueError):
-        # Fallback: check for pass/fail keywords
-        response_lower = response.lower()
-        if "pass" in response_lower or "通过" in response_lower:
+        pass
+
+    # Second attempt: find JSON object pattern in mixed content
+    # Handles cases where LLM adds text before/after JSON
+    json_pattern = r'\{[^{}]*"passed"[^{}]*\}'
+    matches = re.findall(json_pattern, response, re.DOTALL)
+    for match in matches:
+        try:
+            parsed = json.loads(match)
             return FactCheckResult(
-                passed=True,
-                reason="Fallback: pass detected",
-                issues=[],
+                passed=bool(parsed.get("passed", False)),
+                reason=parsed.get("reason", ""),
+                issues=parsed.get("issues", []),
             )
-        else:
-            return FactCheckResult(
-                passed=False,
-                reason="Fallback: fail detected",
-                issues=["无法解析核查结果"],
-            )
+        except json.JSONDecodeError:
+            continue
+
+    # Fallback: check for explicit pass confirmation (fail-safe approach)
+    # Use specific phrases to avoid false positives from "pass" appearing in other contexts
+    if "核查通过" in response or "事实核查通过" in response or "验证通过" in response:
+        logger.warning(
+            "Fact check parsing fell back to keyword detection (pass)",
+            response_preview=response[:200],
+        )
+        return FactCheckResult(
+            passed=True,
+            reason="Fallback: explicit pass phrase detected",
+            issues=[],
+        )
+
+    # Default to fail when unable to parse - fail-safe approach
+    logger.warning(
+        "Fact check parsing failed, defaulting to fail",
+        response_preview=response[:200],
+    )
+    return FactCheckResult(
+        passed=False,
+        reason=f"无法解析核查结果: {response[:100]}",
+        issues=["LLM返回格式不正确，请检查系统配置"],
+    )
 
 
 async def format_response_node(

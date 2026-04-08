@@ -268,9 +268,7 @@ class ResearcherAgent(BaseChatAgent):
         if tool_results:
             results_text = ""
             for i, result in enumerate(tool_results, 1):
-                # Truncate long results
-                truncated = result[:500] + "..." if len(result) > 500 else result
-                results_text += f"\n--- 结果 {i} ---\n{truncated}\n"
+                results_text += f"\n--- 结果 {i} ---\n{result}\n"
 
             tool_results_section = get_prompt("chat.researcher_tool_results").format(
                 tool_results=results_text

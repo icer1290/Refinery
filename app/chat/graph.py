@@ -37,9 +37,9 @@ from app.services.chat_cache import get_chat_cache_service
 logger = get_logger(__name__)
 settings = get_settings()
 
-# Maximum routing steps to prevent infinite loops
-# Allow for: load_context + supervisor + researcher(ReAct) + explainer + fact_check + retry scenarios
-MAX_ROUTING_STEPS = 25
+# Maximum consecutive fact-check failures to prevent infinite retry loops
+# After this many failures, force end to avoid endless explainer -> fact_checker cycles
+MAX_FACT_CHECK_FAILURES = 3
 
 
 def _route_after_supervisor(state: ChatState) -> str:
@@ -53,10 +53,13 @@ def _route_after_supervisor(state: ChatState) -> str:
     """
     route = state.get("current_agent", "researcher_think")
 
-    # Safety check: prevent infinite loops
-    routing_history = state.get("routing_history", [])
-    if len(routing_history) >= MAX_ROUTING_STEPS:
-        logger.warning("Max routing steps reached, forcing end")
+    # Safety check: prevent infinite fact-check retry loops
+    fact_check_failures = state.get("fact_check_failures", 0)
+    if fact_check_failures >= MAX_FACT_CHECK_FAILURES:
+        logger.warning(
+            "Max fact-check failures reached, forcing end",
+            fact_check_failures=fact_check_failures,
+        )
         return "format_response"
 
     if route == "researcher":

@@ -164,7 +164,7 @@ class FactCheckerAgent(BaseChatAgent):
         """
         prompt = get_prompt("chat.claim_extraction")
         extract_prompt = prompt.format(
-            context=context[:500],
+            context=context,
             query=query,
         )
 
@@ -210,8 +210,7 @@ class FactCheckerAgent(BaseChatAgent):
         if tool_results:
             results_text = ""
             for i, result in enumerate(tool_results, 1):
-                truncated = result[:400] + "..." if len(result) > 400 else result
-                results_text += f"\n--- 来源 {i} ---\n{truncated}\n"
+                results_text += f"\n--- 来源 {i} ---\n{result}\n"
 
             tool_results_section = get_prompt("chat.fact_checker_tool_results").format(
                 tool_results=results_text

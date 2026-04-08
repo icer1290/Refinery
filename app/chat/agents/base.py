@@ -66,11 +66,10 @@ class BaseChatAgent(ABC):
         Returns:
             Formatted context string
         """
-        # Format article content (truncated)
+        # Format article content (full content for better context)
         content = article_context.get('content', '')
         if content:
-            max_content = 1000
-            truncated = content[:max_content] + "..." if len(content) > max_content else content
+            truncated = content
         else:
             truncated = "无内容"
 
@@ -78,16 +77,14 @@ class BaseChatAgent(ABC):
         deepsearch_section = ""
         if article_context.get('deepsearch_report'):
             report = article_context['deepsearch_report']
-            max_report = 500
-            truncated_report = report[:max_report] + "..." if len(report) > max_report else report
             deepsearch_prompt = get_prompt("chat.deepsearch_section")
-            deepsearch_section = deepsearch_prompt.format(deepsearch_report=truncated_report)
+            deepsearch_section = deepsearch_prompt.format(deepsearch_report=report)
 
         # Format conversation history
         history_lines = []
         for msg in conversation_history[-5:]:  # Last 5 messages
             role = msg.get('role', 'unknown')
-            content = msg.get('content', '')[:200]
+            content = msg.get('content', '')
             history_lines.append(f"{role}: {content}")
         history = "\n".join(history_lines) if history_lines else "无历史记录"
 

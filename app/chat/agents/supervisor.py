@@ -86,13 +86,13 @@ class SupervisorAgent(BaseChatAgent):
         """Build the routing classification prompt using centralized template."""
         # Article info
         article_title = article_context.get("title", "未知文章")
-        article_summary = article_context.get("summary", "")[:200]
+        article_summary = article_context.get("summary", "")
 
         # Conversation context
         last_messages = ""
         for msg in conversation_history[-3:]:
             role = msg.get("role", "")
-            content = msg.get("content", "")[:100]
+            content = msg.get("content", "")
             last_messages += f"{role}: {content}\n"
 
         # User profile hints
