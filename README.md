@@ -1,3 +1,5 @@
+[English](README.md) | [中文](README.zh-CN.md)
+
 # Tech News Aggregator
 
 An AI-powered tech news aggregation system built with LangGraph, FastAPI, and PostgreSQL.
