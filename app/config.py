@@ -133,7 +133,7 @@ class Settings(BaseSettings):
     redis_enabled: bool = False
 
     # === Chat Configuration ===
-    chat_max_tokens: int = 1000  # Context window size
+    chat_max_tokens: int = 254000  # Context window size
     chat_context_threshold: float = 0.7  # Compression threshold (70%)
     chat_tool_expiry_minutes: int = 30  # Micro-compact expiry
     chat_extraction_interval: int = 5  # Memory extraction every N tool calls

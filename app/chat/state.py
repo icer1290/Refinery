@@ -175,7 +175,7 @@ def create_initial_chat_state(
     article_id: str,
     user_id: int,
     user_message: str,
-    max_tokens: int = 1000,
+    max_tokens: int = 254000,
     context_threshold: float = 0.7,
     max_research_iterations: int = 5,
 ) -> ChatState:
