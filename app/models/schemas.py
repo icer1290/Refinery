@@ -510,7 +510,7 @@ class ChatRequest(BaseModel):
     include_deepsearch: bool = Field(default=True, description="Include deepsearch context")
 
 
-class ToolCallInfo(BaseModel):
+class ChatToolCallInfo(BaseModel):
     """Schema for tool call information in chat response."""
 
     tool_name: str
@@ -526,7 +526,7 @@ class ChatResponse(BaseModel):
     response: str
     agent_used: str  # researcher, explainer, fact_checker
     citations: list[CitationInfo] = []
-    tool_calls: list[ToolCallInfo] = []
+    tool_calls: list[ChatToolCallInfo] = []
     tokens_used: int = 0
     created_at: datetime
 

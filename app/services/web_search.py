@@ -193,8 +193,9 @@ class WebSearchService:
             List of search results
         """
         # DDGS is synchronous, run in executor
+        # Pass configured timeout (DDGS default is only 5s which is too short)
         def _search():
-            with DDGS() as ddgs:
+            with DDGS(timeout=int(self.timeout)) as ddgs:
                 results = list(ddgs.text(query, max_results=max_results))
                 return results
 
