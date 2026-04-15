@@ -1,7 +1,7 @@
-"""Services management commands for ai-engine CLI.
+"""Services management commands for Refinery CLI.
 
 Provides commands to start, stop, restart, and check status of
-ai-engine Docker services (PostgreSQL, Redis, ai-engine).
+Refinery Docker services (PostgreSQL, Redis, refinery).
 """
 
 from pathlib import Path
@@ -20,7 +20,7 @@ from app.cli.service_manager import (
 
 app = typer.Typer(
     name="services",
-    help="Manage ai-engine Docker services (PostgreSQL, Redis, ai-engine)",
+    help="Manage Refinery Docker services (PostgreSQL, Redis, refinery)",
 )
 console = Console()
 
@@ -53,15 +53,15 @@ def start(
         help="Specific services to start (default: all services)",
     ),
 ) -> None:
-    """Start ai-engine Docker services.
+    """Start refinery Docker services.
 
     Starts all services defined in docker-compose.yml by default.
     Use --no-wait to return immediately without waiting for health checks.
 
     Examples:
-        ai-engine services start
-        ai-engine services start postgres redis
-        ai-engine services start --no-wait
+        refinery services start
+        refinery services start postgres redis
+        refinery services start --no-wait
     """
     manager = get_service_manager()
 
@@ -72,7 +72,7 @@ def start(
         raise typer.Exit(1)
     except ServiceTimeoutError as e:
         console.print(f"[red]Error: {e}[/red]")
-        console.print("[yellow]Tip: Check service logs with 'ai-engine services logs'[/yellow]")
+        console.print("[yellow]Tip: Check service logs with 'refinery services logs'[/yellow]")
         raise typer.Exit(1)
     except ServiceManagerError as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -87,14 +87,14 @@ def stop(
         help="Remove volumes (warning: deletes all data)",
     ),
 ) -> None:
-    """Stop ai-engine Docker services.
+    """Stop refinery Docker services.
 
     Stops all running services. Use --remove-volumes to also delete
     persistent data (PostgreSQL data, Redis data).
 
     Examples:
-        ai-engine services stop
-        ai-engine services stop -v  # Also removes volumes
+        refinery services stop
+        refinery services stop -v  # Also removes volumes
     """
     manager = get_service_manager()
 
@@ -122,13 +122,13 @@ def restart(
         help="Specific services to restart (default: all services)",
     ),
 ) -> None:
-    """Restart ai-engine Docker services.
+    """Restart refinery Docker services.
 
     Restarts all services by default, or specific services if provided.
 
     Examples:
-        ai-engine services restart
-        ai-engine services restart postgres
+        refinery services restart
+        refinery services restart postgres
     """
     manager = get_service_manager()
 
@@ -144,12 +144,12 @@ def restart(
 
 @app.command("status")
 def status() -> None:
-    """Show status of ai-engine Docker services.
+    """Show status of refinery Docker services.
 
     Displays a table with service name, state, health status, and ports.
 
     Example:
-        ai-engine services status
+        refinery services status
     """
     manager = get_service_manager()
 
@@ -164,10 +164,10 @@ def status() -> None:
 
     if not services:
         console.print("[yellow]No services are currently running.[/yellow]")
-        console.print("[blue]Start services with: ai-engine services start[/blue]")
+        console.print("[blue]Start services with: refinery services start[/blue]")
         return
 
-    table = Table(title="ai-engine Services")
+    table = Table(title="refinery Services")
     table.add_column("Service", style="cyan")
     table.add_column("State", style="magenta")
     table.add_column("Health", style="green")
@@ -228,16 +228,16 @@ def logs(
         help="Number of lines to show from the end of logs",
     ),
 ) -> None:
-    """View logs from ai-engine Docker services.
+    """View logs from refinery Docker services.
 
     Shows logs from all services by default, or from a specific service.
     Use -f to follow log output in real-time.
 
     Examples:
-        ai-engine services logs
-        ai-engine services logs postgres
-        ai-engine services logs -f
-        ai-engine services logs ai-engine --tail=50
+        refinery services logs
+        refinery services logs postgres
+        refinery services logs -f
+        refinery services logs refinery --tail=50
     """
     manager = get_service_manager()
 
@@ -264,8 +264,8 @@ def is_running(
     Useful for scripts and automation.
 
     Examples:
-        ai-engine services is-running
-        ai-engine services is-running postgres
+        refinery services is-running
+        refinery services is-running postgres
     """
     manager = get_service_manager()
 

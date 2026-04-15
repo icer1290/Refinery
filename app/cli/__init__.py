@@ -1,4 +1,4 @@
-"""CLI package for ai-engine."""
+"""CLI package for Refinery."""
 
 from app.cli.config_manager import ConfigManager, get_config_manager
 from app.cli.service_manager import ServiceManager

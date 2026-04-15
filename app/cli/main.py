@@ -1,10 +1,10 @@
-"""Typer CLI entry point for ai-engine."""
+"""Typer CLI entry point for Refinery."""
 
 import typer
 from rich.console import Console
 
 app = typer.Typer(
-    name="ai-engine",
+    name="refinery",
     help="AI-powered tech news aggregation service with LangGraph.",
     add_completion=False,
 )
@@ -33,7 +33,7 @@ app.add_typer(services_app, name="services", help="Manage Docker services")
 
 
 def main() -> None:
-    """Main entry point for the ai-engine CLI."""
+    """Main entry point for the Refinery CLI."""
     app()
 
 

@@ -41,8 +41,8 @@ def interactive(
     and enters an interactive loop for user input.
 
     Example:
-        ai-engine chat abc123
-        ai-engine chat abc123 --user 42
+        refinery chat abc123
+        refinery chat abc123 --user 42
 
     Exit commands: quit, exit, q
     """

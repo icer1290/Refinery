@@ -1,4 +1,4 @@
-"""Configuration manager for ai-engine CLI.
+"""Configuration manager for Refinery CLI.
 
 Handles multi-layer configuration with priority:
 CLI args > env vars > local config > global config > defaults
@@ -64,19 +64,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 
 class ConfigManager:
-    """Manages ai-engine configuration with multi-layer priority.
+    """Manages Refinery configuration with multi-layer priority.
 
     Configuration layers (highest to lowest priority):
     1. CLI arguments (passed at runtime)
     2. Environment variables
-    3. Local config file (./.ai-engine.toml)
-    4. Global config file (~/.ai-engine/config.toml)
+    3. Local config file (./.refinery.toml)
+    4. Global config file (~/.refinery/config.toml)
     5. Default values
     """
 
-    GLOBAL_CONFIG_DIR = Path.home() / ".ai-engine"
+    GLOBAL_CONFIG_DIR = Path.home() / ".refinery"
     GLOBAL_CONFIG_FILE = GLOBAL_CONFIG_DIR / "config.toml"
-    LOCAL_CONFIG_FILE = Path(".ai-engine.toml")
+    LOCAL_CONFIG_FILE = Path(".refinery.toml")
 
     def __init__(self) -> None:
         """Initialize the configuration manager."""

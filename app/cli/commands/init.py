@@ -1,6 +1,6 @@
-"""Init command for ai-engine CLI.
+"""Init command for Refinery CLI.
 
-Interactive setup wizard for configuring ai-engine.
+Interactive setup wizard for configuring Refinery.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ console = Console()
 # Create Typer app for init command
 init_app = typer.Typer(
     name="init",
-    help="Initialize ai-engine configuration with interactive setup wizard",
+    help="Initialize Refinery configuration with interactive setup wizard",
 )
 
 
@@ -38,7 +38,7 @@ def init_callback(
         help="Run non-interactively (requires environment variables)",
     ),
 ) -> None:
-    """Initialize ai-engine configuration.
+    """Initialize Refinery configuration.
 
     Interactive setup wizard that guides through:
     - LLM API configuration (API key, models, base URL)
@@ -48,9 +48,9 @@ def init_callback(
     - Advanced RAG and scoring parameters
 
     Examples:
-        ai-engine init
-        ai-engine init --force
-        ai-engine init --non-interactive
+        refinery init
+        refinery init --force
+        refinery init --non-interactive
     """
     raise typer.Exit(run_init(force=force, non_interactive=non_interactive))
 
@@ -70,7 +70,7 @@ def run_init(force: bool = False, non_interactive: bool = False) -> int:
     # Check if config already exists
     if config_manager.exists() and not force:
         console.print(
-            "[yellow]Configuration already exists at ~/.ai-engine/config.toml[/yellow]"
+            "[yellow]Configuration already exists at ~/.refinery/config.toml[/yellow]"
         )
         console.print("Use --force to overwrite existing configuration.")
         return 1
@@ -89,7 +89,7 @@ def _run_non_interactive(config_manager: ConfigManager) -> int:
     Returns:
         Exit code.
     """
-    console.print("[bold]Initializing ai-engine (non-interactive mode)[/bold]")
+    console.print("[bold]Initializing refinery (non-interactive mode)[/bold]")
 
     # Load config from environment only
     config = config_manager.load(use_env=True)
@@ -128,7 +128,7 @@ def _run_interactive(config_manager: ConfigManager, force: bool) -> int:
     console.print(
         Panel.fit(
             "[bold blue]AI Engine Setup Wizard[/bold blue]\n"
-            "This will guide you through setting up your ai-engine configuration.",
+            "This will guide you through setting up your refinery configuration.",
             border_style="blue",
         )
     )
@@ -327,7 +327,7 @@ def _run_interactive(config_manager: ConfigManager, force: bool) -> int:
         _start_docker_services()
 
     console.print("\n[green]Setup complete![/green]")
-    console.print("[dim]You can now run 'ai-engine workflow run' to start the news aggregator.[/dim]")
+    console.print("[dim]You can now run 'refinery workflow run' to start the news aggregator.[/dim]")
 
     return 0
 

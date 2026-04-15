@@ -41,8 +41,8 @@ def graph_build(
     and stores them in the database.
 
     Example:
-        ai-engine graph build abc123 def456
-        ai-engine graph build abc123 --json
+        refinery graph build abc123 def456
+        refinery graph build abc123 --json
     """
     async def _build() -> dict:
         async with get_cli_session() as session:
@@ -143,9 +143,9 @@ def graph_analyze(
     and generates analysis report.
 
     Example:
-        ai-engine graph analyze abc123
-        ai-engine graph analyze abc123 def456 --hops 3 --expansion 100
-        ai-engine graph analyze abc123 --json
+        refinery graph analyze abc123
+        refinery graph analyze abc123 def456 --hops 3 --expansion 100
+        refinery graph analyze abc123 --json
     """
     async def _analyze() -> dict:
         async with get_cli_session() as session:

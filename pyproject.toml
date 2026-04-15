@@ -1,15 +1,15 @@
 [project]
-name = "ai-engine"
+name = "refinery"
 version = "1.0.0"
 description = "AI-powered tech news aggregation service with LangGraph - CLI-first design for agent integration"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [
-    {name = "AI-Engine Team"}
+    {name = "Refinery Team"}
 ]
 maintainers = [
-    {name = "AI-Engine Team"}
+    {name = "Refinery Team"}
 ]
 keywords = [
     "ai",
@@ -33,7 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News",
+    "Topic :: Internet",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
@@ -79,14 +79,14 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/ai-engine"
-Documentation = "https://github.com/your-org/ai-engine#readme"
-Repository = "https://github.com/your-org/ai-engine.git"
-Issues = "https://github.com/your-org/ai-engine/issues"
-Changelog = "https://github.com/your-org/ai-engine/releases"
+Homepage = "https://github.com/icer1290/Refinery"
+Documentation = "https://github.com/icer1290/Refinery#readme"
+Repository = "https://github.com/icer1290/Refinery.git"
+Issues = "https://github.com/icer1290/Refinery/issues"
+Changelog = "https://github.com/icer1290/Refinery/releases"
 
 [project.scripts]
-ai-engine = "app.cli.main:main"
+refinery = "app.cli.main:main"
 
 [project.optional-dependencies]
 dev = [

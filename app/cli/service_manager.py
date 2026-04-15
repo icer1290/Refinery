@@ -1,7 +1,7 @@
-"""Docker service management for ai-engine CLI.
+"""Docker service management for Refinery CLI.
 
 This module provides the ServiceManager class that wraps docker-compose
-commands for managing the ai-engine services (PostgreSQL, Redis, ai-engine).
+commands for managing the Refinery services (PostgreSQL, Redis, refinery).
 """
 
 import subprocess
@@ -31,10 +31,10 @@ class ServiceTimeoutError(ServiceManagerError):
 
 
 class ServiceManager:
-    """Manages ai-engine Docker services via docker-compose.
+    """Manages Refinery Docker services via docker-compose.
 
     Wraps docker-compose commands to start, stop, and check status
-    of the ai-engine services (PostgreSQL, Redis, ai-engine).
+    of the Refinery services (PostgreSQL, Redis, refinery).
 
     Attributes:
         COMPOSE_FILE: Name of the docker-compose file (relative to project root)
@@ -306,7 +306,7 @@ class ServiceManager:
         )
 
     def start(self, wait: bool = True, services: Optional[list] = None) -> None:
-        """Start ai-engine services.
+        """Start Refinery services.
 
         Args:
             wait: Whether to wait for services to become healthy
@@ -319,7 +319,7 @@ class ServiceManager:
         """
         self._check_docker_available()
 
-        console.print("[bold blue]Starting ai-engine services...[/bold blue]")
+        console.print("[bold blue]Starting Refinery services...[/bold blue]")
 
         # Build command arguments
         args = ["up", "-d"]
@@ -335,7 +335,7 @@ class ServiceManager:
             console.print("[bold green]All services are healthy and ready![/bold green]")
 
     def stop(self, remove_volumes: bool = False) -> None:
-        """Stop ai-engine services.
+        """Stop Refinery services.
 
         Args:
             remove_volumes: Whether to remove volumes (warning: deletes data)
@@ -346,7 +346,7 @@ class ServiceManager:
         """
         self._check_docker_available()
 
-        console.print("[bold blue]Stopping ai-engine services...[/bold blue]")
+        console.print("[bold blue]Stopping Refinery services...[/bold blue]")
 
         args = ["down"]
         if remove_volumes:
@@ -357,7 +357,7 @@ class ServiceManager:
         console.print("[green]Services stopped![/green]")
 
     def status(self) -> dict:
-        """Get status of ai-engine services.
+        """Get status of Refinery services.
 
         Returns:
             Dictionary with service status information:
@@ -401,7 +401,7 @@ class ServiceManager:
         return any(svc['state'] == 'running' for svc in status.values())
 
     def restart(self, services: Optional[list] = None) -> None:
-        """Restart ai-engine services.
+        """Restart Refinery services.
 
         Args:
             services: List of specific services to restart. If None, restarts all.
@@ -412,7 +412,7 @@ class ServiceManager:
         """
         self._check_docker_available()
 
-        console.print("[bold blue]Restarting ai-engine services...[/bold blue]")
+        console.print("[bold blue]Restarting Refinery services...[/bold blue]")
 
         args = ["restart"]
         if services:
