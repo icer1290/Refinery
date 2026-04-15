@@ -343,7 +343,31 @@ refinery/
 └── docker-compose.yml
 ```
 
-## Integration Examples
+## Agent Integration
+
+### Personal Agent Usage
+
+Refinery provides a dedicated **Agent Skill** that enables your personal agents (such as OpenClaw, Hermes Agent, etc.) to operate Refinery via CLI commands.
+
+The Agent Skill is located at `skills/refinery-cli/SKILL.md` and includes comprehensive CLI usage guidance:
+
+- Service management commands
+- Workflow execution and monitoring
+- Article queries and deep search
+- Knowledge graph building and analysis
+- Multi-turn chat functionality
+- JSON output format (easy for agents to parse)
+- Troubleshooting common issues
+
+**How to Use**: Load `skills/refinery-cli/SKILL.md` into your agent as skill knowledge, and your agent can execute CLI commands to complete various tasks.
+
+```bash
+# Typical commands agents can execute
+refinery services status          # Check service status
+refinery workflow run --json      # Run workflow and get structured results
+refinery article show <id>        # View article details
+refinery chat <id>                # Chat with article
+```
 
 ### Cron Job
 
@@ -392,4 +416,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Issues
 
-If you encounter any problems, please file an issue at: https://github.com/your-org/refinery/issues
+If you encounter any problems, please file an issue at: https://github.com/icer1290/Refinery/issues

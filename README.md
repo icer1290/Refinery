@@ -343,7 +343,31 @@ refinery/
 └── docker-compose.yml
 ```
 
-## 集成示例
+## 智能体集成
+
+### 个人智能体使用
+
+Refinery 提供了专门的 **Agent Skill**，让您的个人智能体（如 OpenClaw、Hermes Agent 等）能够通过 CLI 命令操作 Refinery。
+
+Agent Skill 位于 `skills/refinery-cli/SKILL.md`，包含完整的 CLI 使用指南：
+
+- 服务管理命令
+- 工作流运行与监控
+- 文章查询与深度搜索
+- 知识图谱构建与分析
+- 多轮对话功能
+- JSON 输出格式（便于智能体解析）
+- 常见问题排查
+
+**使用方式**：将 `skills/refinery-cli/SKILL.md` 内容加载到您的智能体作为skill，智能体即可通过执行 CLI 命令完成各类任务。
+
+```bash
+# 智能体可执行的典型命令
+refinery services status          # 检查服务状态
+refinery workflow run --json      # 运行工作流并获取结构化结果
+refinery article show <id>        # 查看文章详情
+refinery chat <id>                # 与文章对话
+```
 
 ### Cron 定时任务
 
@@ -392,4 +416,4 @@ MIT
 
 ## 问题反馈
 
-如遇问题，请在 https://github.com/your-org/refinery/issues 提交 issue
+如遇问题，请在 https://github.com/icer1290/Refinery/issues 提交 issue
