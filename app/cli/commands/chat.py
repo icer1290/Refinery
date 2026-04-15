@@ -22,10 +22,11 @@ chat_app = typer.Typer(
 )
 
 
-@chat_app.command()
-def interactive(
+@chat_app.callback(invoke_without_command=True)
+def chat_callback(
+    ctx: typer.Context,
     article_id: str = typer.Argument(
-        ...,
+        None,
         help="Article ID to chat about (UUID)",
     ),
     user_id: int = typer.Option(
@@ -46,6 +47,16 @@ def interactive(
 
     Exit commands: quit, exit, q
     """
+    # If a subcommand is being invoked, don't run this
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Require article_id
+    if not article_id:
+        console.print("[red]Error: Article ID is required[/red]")
+        console.print("[dim]Usage: refinery chat <article-id>[/dim]")
+        raise typer.Exit(1)
+
     # Validate article ID
     try:
         article_uuid = uuid.UUID(article_id)
