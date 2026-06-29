@@ -72,7 +72,7 @@ Configuration is stored in TOML format with multi-layer priority:
 [llm]
 api_key = "sk-xxx"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-chat_model = "qwen3.5-35b-a3b"
+chat_model = "qwen3.6-35b-a3b"
 embedding_model = "text-embedding-v4"
 temperature = 0.3
 

@@ -1264,7 +1264,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: Optional[str] = None  # DashScope: https://dashscope.aliyuncs.com/compatible-mode/v1
     openai_embedding_model: str = "text-embedding-v4"
-    openai_chat_model: str = "qwen3.5-35b-a3b"
+    openai_chat_model: str = "qwen3.6-35b-a3b"
 
     # ===== RAG 配置 =====
     rag_chunk_size: int = 2000           # 每个 chunk 的最大字符数
